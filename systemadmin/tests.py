@@ -506,3 +506,63 @@ class WeightedResultsCalculationTests(AdminAccessTestCase):
             ],
         )
         self.assertEqual(contestant_a.final_score(), 84.0)
+
+    def test_results_page_includes_per_criterion_breakdown_tables(self):
+        production = Criteria.objects.create(name="Production", percentage=20)
+        talent = Criteria.objects.create(name="Talent", percentage=80)
+        contestant_a = Participant.objects.create(name="Contestant A")
+        contestant_b = Participant.objects.create(name="Contestant B")
+        judge_one = Judge.objects.create(
+            user=User.objects.create_user(username="judge_segment_1", password="pass12345")
+        )
+        judge_two = Judge.objects.create(
+            user=User.objects.create_user(username="judge_segment_2", password="pass12345")
+        )
+        judge_three = Judge.objects.create(
+            user=User.objects.create_user(username="judge_segment_3", password="pass12345")
+        )
+
+        Score.objects.create(judge=judge_one, participant=contestant_a, criteria=production, score_value=90)
+        Score.objects.create(judge=judge_two, participant=contestant_a, criteria=production, score_value=95)
+        Score.objects.create(judge=judge_three, participant=contestant_a, criteria=production, score_value=85)
+        Score.objects.create(judge=judge_one, participant=contestant_b, criteria=production, score_value=80)
+        Score.objects.create(judge=judge_two, participant=contestant_b, criteria=production, score_value=84)
+        Score.objects.create(judge=judge_three, participant=contestant_b, criteria=production, score_value=86)
+
+        Score.objects.create(judge=judge_one, participant=contestant_a, criteria=talent, score_value=92)
+        Score.objects.create(judge=judge_two, participant=contestant_a, criteria=talent, score_value=90)
+        Score.objects.create(judge=judge_three, participant=contestant_a, criteria=talent, score_value=88)
+        Score.objects.create(judge=judge_one, participant=contestant_b, criteria=talent, score_value=89)
+        Score.objects.create(judge=judge_two, participant=contestant_b, criteria=talent, score_value=87)
+        Score.objects.create(judge=judge_three, participant=contestant_b, criteria=talent, score_value=85)
+
+        response = self.client.get(reverse("systemadmin:tabulation_results"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [judge.user.username for judge in response.context["results_judges"]],
+            ["judge_segment_1", "judge_segment_2", "judge_segment_3"],
+        )
+
+        breakdowns = response.context["criterion_breakdowns"]
+        self.assertEqual([item["criterion"].id for item in breakdowns], [production.id, talent.id])
+
+        production_rows = breakdowns[0]["rows"]
+        self.assertEqual(production_rows[0]["participant"], contestant_a)
+        self.assertEqual(production_rows[0]["judge_scores"], [90, 95, 85])
+        self.assertEqual(production_rows[0]["submitted_count"], 3)
+        self.assertEqual(production_rows[0]["average_score"], 90.0)
+        self.assertEqual(production_rows[0]["weighted_score"], 18.0)
+        self.assertEqual(production_rows[0]["rank"], 1)
+
+        self.assertEqual(production_rows[1]["participant"], contestant_b)
+        self.assertEqual(production_rows[1]["judge_scores"], [80, 84, 86])
+        self.assertEqual(production_rows[1]["submitted_count"], 3)
+        self.assertAlmostEqual(production_rows[1]["average_score"], 83.33, places=2)
+        self.assertAlmostEqual(production_rows[1]["weighted_score"], 16.67, places=2)
+        self.assertEqual(production_rows[1]["rank"], 2)
+
+        self.assertEqual(breakdowns[0]["top_row"]["participant"], contestant_a)
+        self.assertContains(response, "Criterion score tables")
+        self.assertContains(response, "Weight 20.00%")
+        self.assertContains(response, "judge_segment_1")

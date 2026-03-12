@@ -2,7 +2,6 @@
 
 {% block title %}Admin Dashboard{% endblock %}
 {% block page_title %}System Admin Dashboard{% endblock %}
-{% block page_intro %}Broadcast a judging criterion live to every judge, monitor submission progress, and keep the scoring flow moving in the intended sequence.{% endblock %}
 
 {% block extra_head %}
     <style>
@@ -109,11 +108,6 @@
             }
         }
     </style>
-{% endblock %}
-
-{% block page_actions %}
-    <a href="{% url 'systemadmin:add_judge' %}" class="button">Add Judge</a>
-    <a href="{% url 'systemadmin:add_participant' %}" class="button secondary">Add Participant</a>
 {% endblock %}
 
 {% block content %}

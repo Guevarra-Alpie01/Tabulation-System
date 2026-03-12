@@ -48,6 +48,75 @@ def _calculate_results():
     return sorted(results, key=lambda item: item["score"], reverse=True)
 
 
+def _build_criterion_breakdowns():
+    criteria = list(Criteria.objects.order_by("display_order", "id"))
+    participants = list(Participant.objects.order_by("display_order", "id"))
+    judges = list(Judge.objects.select_related("user").order_by("id"))
+    score_map = defaultdict(dict)
+
+    for score in Score.objects.values("criteria_id", "participant_id", "judge_id", "score_value"):
+        score_map[(score["criteria_id"], score["participant_id"])][score["judge_id"]] = score["score_value"]
+
+    breakdowns = []
+
+    for criterion in criteria:
+        rows = []
+
+        for participant in participants:
+            participant_scores = score_map.get((criterion.id, participant.id), {})
+            judge_scores = [participant_scores.get(judge.id) for judge in judges]
+            captured_scores = [score for score in judge_scores if score is not None]
+            average_score = sum(captured_scores) / len(captured_scores) if captured_scores else None
+            weighted_score = (average_score / 100) * criterion.percentage if average_score is not None else None
+
+            rows.append(
+                {
+                    "participant": participant,
+                    "judge_scores": judge_scores,
+                    "submitted_count": len(captured_scores),
+                    "average_score": average_score,
+                    "weighted_score": weighted_score,
+                    "rank": None,
+                }
+            )
+
+        rows.sort(
+            key=lambda row: (
+                row["weighted_score"] is None,
+                -(row["weighted_score"] or 0),
+                row["participant"].display_order,
+                row["participant"].id,
+            )
+        )
+
+        previous_weighted_score = None
+        previous_rank = 0
+
+        for index, row in enumerate(rows, start=1):
+            if row["weighted_score"] is None:
+                continue
+
+            if previous_weighted_score is None or abs(row["weighted_score"] - previous_weighted_score) >= 1e-9:
+                previous_rank = index
+                previous_weighted_score = row["weighted_score"]
+
+            row["rank"] = previous_rank
+
+        breakdowns.append(
+            {
+                "criterion": criterion,
+                "judge_count": len(judges),
+                "rows": rows,
+                "top_row": next((row for row in rows if row["rank"] == 1), None),
+            }
+        )
+
+    return {
+        "results_judges": judges,
+        "criterion_breakdowns": breakdowns,
+    }
+
+
 def _normalize_criteria_order():
     criteria = list(Criteria.objects.order_by("display_order", "id"))
     changed = []
@@ -502,6 +571,7 @@ def tabulation_results(request):
         {
             "results": _calculate_results(),
             "has_scores": Score.objects.exists(),
+            **_build_criterion_breakdowns(),
         }
     )
     return render(request, "results.html", context)

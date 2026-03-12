@@ -4,9 +4,9 @@
 {% block page_title %}Judge Dashboard{% endblock %}
 {% block page_intro %}
     {% if active_live_session %}
-        Signed in as {{ judge.user.username }}. The live scoring round for {{ active_live_session.criterion.name }} is active now.
+            {{ judge.user.username }} | {{ active_live_session.criterion.name }} 
     {% else %}
-        Signed in as {{ judge.user.username }}. Stay on this screen and the next live judging criterion will appear automatically.
+       {{ judge.user.username }}
     {% endif %}
 {% endblock %}
 
@@ -135,29 +135,7 @@
          data-live-status-url="{% url 'judge:live_status' %}"
          data-active-session-id="{% if active_live_session %}{{ active_live_session.id }}{% endif %}"
          data-has-submitted="{% if live_submission %}1{% else %}0{% endif %}">
-        <section class="metric-grid">
-            <article class="metric-card">
-                <span>Participants</span>
-                <strong>{{ participants|length }}</strong>
-                <p>Contestants included in the current event roster.</p>
-            </article>
-            <article class="metric-card">
-                <span>Judge Account</span>
-                <strong>{{ judge.user.username }}</strong>
-                <p>Your live submissions are saved under this login.</p>
-            </article>
-            <article class="metric-card">
-                <span>Live Criterion</span>
-                <strong>{% if active_live_session %}{{ active_live_session.criterion.name }}{% else %}Waiting{% endif %}</strong>
-                <p>
-                    {% if active_live_session %}
-                        Weight {{ active_live_session.criterion.percentage|floatformat:2 }}%
-                    {% else %}
-                        Waiting for the Admin/Tabulator to go live.
-                    {% endif %}
-                </p>
-            </article>
-        </section>
+      
 
         {% if active_live_session %}
             <section class="hero-panel live-hero">
