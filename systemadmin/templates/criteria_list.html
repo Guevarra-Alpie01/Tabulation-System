@@ -1,21 +1,67 @@
-<h2>Judging Criteria</h2>
+{% extends "systemadmin/base.html" %}
 
-<a href="{% url 'systemadmin:add_criteria' %}">Add Criteria</a>
+{% block title %}Criteria{% endblock %}
+{% block page_title %}Judging Criteria{% endblock %}
+{% block page_intro %}Review the scoring framework, check total weight, and keep each criterion clear enough for judges to score consistently.{% endblock %}
 
-<table border="1">
+{% block page_actions %}
+    <a href="{% url 'systemadmin:add_criteria' %}" class="button">Add Criteria</a>
+    <a href="{% url 'systemadmin:admin_dashboard' %}" class="button secondary">Dashboard</a>
+{% endblock %}
 
-<tr>
-<th>Name</th>
-<th>Percentage</th>
-</tr>
+{% block content %}
+    {% if admin_summary.criteria_ready %}
+        <div class="callout success">
+            The criteria set is balanced at {{ admin_summary.criteria_total|floatformat:2 }}%. Weighted scores will be calculated correctly.
+        </div>
+    {% else %}
+        <div class="callout warning">
+            The criteria total is {{ admin_summary.criteria_total|floatformat:2 }}%. Update the scoring mix until the full total reaches 100%.
+        </div>
+    {% endif %}
 
-{% for c in criteria %}
+    <section class="panel">
+        <div class="panel-head">
+            <div>
+                <span class="section-label">Framework</span>
+                <h2>Criteria list</h2>
+            </div>
+            <span class="pill accent">{{ admin_summary.criteria_count }} total</span>
+        </div>
 
-<tr>
-<td>{{c.name}}</td>
-<td>{{c.percentage}}%</td>
-</tr>
-
-{% endfor %}
-
-</table>
+        {% if criteria %}
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Criteria</th>
+                            <th>Weight</th>
+                            <th>Visual Share</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for criterion in criteria %}
+                            <tr>
+                                <td><strong>{{ criterion.name }}</strong></td>
+                                <td><span class="pill accent">{{ criterion.percentage|floatformat:2 }}%</span></td>
+                                <td>
+                                    <div class="progress" aria-label="{{ criterion.name }} weight">
+                                        <div class="progress-bar" style="width: {{ criterion.percentage }}%;"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No criteria defined yet</h3>
+                <p>Create the scoring categories before judges begin tabulating participant performance.</p>
+                <div class="button-row" style="justify-content:center; margin-top:1rem;">
+                    <a href="{% url 'systemadmin:add_criteria' %}" class="button">Add the first criteria</a>
+                </div>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

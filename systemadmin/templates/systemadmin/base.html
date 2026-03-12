@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}System Admin{% endblock %}</title>
+    <style>
+        :root {
+            --bg: #f5efe6;
+            --panel: rgba(255, 252, 247, 0.9);
+            --border: rgba(63, 50, 38, 0.14);
+            --text: #1f2b24;
+            --muted: #66756b;
+            --accent: #0e7a6d;
+            --accent-strong: #0a5f56;
+            --accent-soft: rgba(14, 122, 109, 0.12);
+            --warm: #be6a3b;
+            --warm-soft: rgba(190, 106, 59, 0.12);
+            --success: #1a8256;
+            --warning: #a45f17;
+            --shadow: 0 22px 60px rgba(41, 36, 29, 0.08);
+            --radius-xl: 28px;
+            --radius-lg: 20px;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Trebuchet MS", "Gill Sans", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, rgba(14, 122, 109, 0.13), transparent 28%),
+                radial-gradient(circle at top right, rgba(190, 106, 59, 0.13), transparent 22%),
+                linear-gradient(180deg, var(--bg), #fbf8f2 60%, #f2eadf 100%);
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background-image: linear-gradient(rgba(63, 50, 38, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(63, 50, 38, 0.03) 1px, transparent 1px);
+            background-size: 28px 28px;
+            mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.6), transparent 88%);
+        }
+
+        a { color: inherit; text-decoration: none; }
+        img { display: block; max-width: 100%; }
+
+        .page-shell {
+            display: grid;
+            grid-template-columns: 300px minmax(0, 1fr);
+            gap: 1.5rem;
+            padding: 1.5rem;
+        }
+
+        .sidebar, .main-panel, .panel, .metric-card, .action-card, .leader-card {
+            backdrop-filter: blur(10px);
+            background: var(--panel);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 1.5rem;
+            height: calc(100vh - 3rem);
+            border-radius: var(--radius-xl);
+            padding: 1.4rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.95rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(63, 50, 38, 0.1);
+        }
+
+        .brand-mark {
+            width: 52px;
+            height: 52px;
+            border-radius: 18px;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(145deg, var(--accent), var(--warm));
+            color: white;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+        }
+
+        .brand h1, .topbar h1, .panel h2, .panel h3, .metric-card strong, .leader-card strong {
+            font-family: Georgia, "Times New Roman", serif;
+        }
+
+        .brand h1 { margin: 0; font-size: 1.12rem; }
+        .brand p, .page-copy, .panel-copy, .field-help, .table-subtext, .empty-state p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        .nav-list, .mini-stat-grid, .metric-grid, .action-grid, .leader-grid, .flash-list, .checklist, .leaders-list, .tips-list, .scoreboard-list, .form-layout, .field-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .nav-list { gap: 0.55rem; }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            padding: 0.9rem 1rem;
+            border-radius: 16px;
+            color: var(--muted);
+            transition: transform 180ms ease, background 180ms ease, color 180ms ease;
+        }
+
+        .nav-link:hover, .nav-link:focus-visible {
+            background: rgba(255, 255, 255, 0.7);
+            color: var(--text);
+            transform: translateX(4px);
+        }
+
+        .nav-link.is-active {
+            background: linear-gradient(135deg, rgba(14, 122, 109, 0.16), rgba(190, 106, 59, 0.14));
+            color: var(--text);
+            font-weight: 700;
+        }
+
+        .nav-icon, .rank-chip, .table-photo--placeholder, .score-avatar--placeholder {
+            width: 34px;
+            height: 34px;
+            border-radius: 12px;
+            display: grid;
+            place-items: center;
+            background: rgba(31, 43, 36, 0.08);
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+        }
+
+        .sidebar-card {
+            padding: 1rem;
+            border-radius: var(--radius-lg);
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid rgba(63, 50, 38, 0.08);
+        }
+
+        .section-label, .eyebrow {
+            display: inline-block;
+            margin-bottom: 0.55rem;
+            color: var(--warm);
+            font-size: 0.76rem;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .mini-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 1rem 0; gap: 0.7rem; }
+        .mini-stat, .metric-card {
+            border-radius: 18px;
+            padding: 0.95rem;
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(63, 50, 38, 0.08);
+        }
+
+        .mini-stat span, .metric-card span { display: block; color: var(--muted); font-size: 0.86rem; margin-bottom: 0.3rem; }
+        .mini-stat strong, .metric-card strong { display: block; font-size: 1.45rem; }
+
+        .readiness-card {
+            padding: 0.95rem;
+            border-radius: 18px;
+            background: var(--accent-soft);
+            border: 1px solid rgba(14, 122, 109, 0.18);
+        }
+
+        .readiness-card.warning { background: var(--warm-soft); border-color: rgba(190, 106, 59, 0.18); }
+        .readiness-card strong { display: block; margin-bottom: 0.2rem; font-size: 1rem; }
+
+        .main-panel {
+            border-radius: 34px;
+            padding: 1.6rem;
+            animation: float-in 520ms ease;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+            padding-bottom: 1.35rem;
+        }
+
+        .topbar h1 { margin: 0 0 0.4rem; font-size: clamp(2rem, 3vw, 2.85rem); line-height: 1.06; }
+
+        .button-row, .table-actions, .form-footer {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .button-row { justify-content: flex-end; }
+
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 46px;
+            padding: 0.8rem 1.1rem;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+            appearance: none;
+            transition: transform 180ms ease, box-shadow 180ms ease;
+        }
+
+        .button:hover, .button:focus-visible {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 24px rgba(14, 122, 109, 0.18);
+        }
+
+        .button.secondary { background: white; color: var(--text); border-color: rgba(63, 50, 38, 0.12); }
+        .button.ghost { background: transparent; color: var(--text); border-color: rgba(63, 50, 38, 0.14); }
+
+        .metric-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 1rem; }
+        .action-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 1rem; }
+
+        .action-card, .panel, .leader-card {
+            border-radius: var(--radius-xl);
+            padding: 1.25rem;
+            animation: float-in 640ms ease both;
+        }
+
+        .action-card h3, .panel h2, .panel h3, .leader-card h3 { margin: 0 0 0.35rem; font-size: 1.35rem; }
+        .metric-card p, .action-card p, .leader-card p { color: var(--muted); line-height: 1.6; }
+
+        .panel-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.38rem 0.78rem;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            background: rgba(31, 43, 36, 0.08);
+            color: var(--text);
+        }
+
+        .pill.success { background: rgba(26, 130, 86, 0.12); color: var(--success); }
+        .pill.warning { background: rgba(164, 95, 23, 0.12); color: var(--warning); }
+        .pill.accent { background: rgba(14, 122, 109, 0.12); color: var(--accent-strong); }
+
+        .split-layout, .dual-panel { display: grid; gap: 1rem; }
+        .split-layout { grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.95fr); }
+        .dual-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+        .check-item, .leader-row, .tip-item, .scoreboard-row {
+            display: flex;
+            align-items: center;
+            gap: 0.9rem;
+            padding: 0.9rem;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid rgba(63, 50, 38, 0.08);
+        }
+
+        .check-index, .leader-rank {
+            width: 38px;
+            height: 38px;
+            border-radius: 14px;
+            display: grid;
+            place-items: center;
+            background: rgba(14, 122, 109, 0.12);
+            color: var(--accent-strong);
+            font-weight: 700;
+        }
+
+        .leader-rank.is-top { background: rgba(190, 106, 59, 0.15); color: var(--warm); }
+
+        .leader-meta, .identity-cell, .score-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            min-width: 0;
+        }
+
+        .leader-meta div, .identity-cell div, .score-meta div { min-width: 0; }
+        .leader-meta strong, .identity-cell strong, .score-meta strong { display: block; margin-bottom: 0.1rem; }
+        .leader-score, .score-value { margin-left: auto; font-weight: 700; font-size: 1rem; }
+        .leader-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 1rem; }
+
+        .leader-card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 249, 241, 0.92));
+        }
+
+        .podium-rank {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            margin-bottom: 1rem;
+            background: rgba(14, 122, 109, 0.12);
+            color: var(--accent-strong);
+            font-weight: 700;
+        }
+
+        .flash { padding: 0.95rem 1rem; border-radius: 18px; border: 1px solid rgba(14, 122, 109, 0.14); background: rgba(14, 122, 109, 0.08); color: var(--accent-strong); }
+        .flash.error { border-color: rgba(164, 95, 23, 0.14); background: rgba(164, 95, 23, 0.08); color: var(--warning); }
+
+        .callout {
+            padding: 1rem 1.1rem;
+            border-radius: 20px;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(63, 50, 38, 0.08);
+            background: rgba(255, 255, 255, 0.7);
+        }
+
+        .callout.success { background: rgba(26, 130, 86, 0.08); border-color: rgba(26, 130, 86, 0.14); }
+        .callout.warning { background: rgba(190, 106, 59, 0.08); border-color: rgba(190, 106, 59, 0.16); }
+
+        .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .field { display: grid; gap: 0.5rem; }
+        .field label { font-size: 0.92rem; font-weight: 700; }
+
+        .form-input, input[type="text"], input[type="number"], input[type="file"], textarea, select {
+            width: 100%;
+            min-height: 50px;
+            padding: 0.8rem 0.95rem;
+            border-radius: 16px;
+            border: 1px solid rgba(63, 50, 38, 0.14);
+            background: rgba(255, 255, 255, 0.92);
+            color: var(--text);
+            font: inherit;
+        }
+
+        input[type="file"] { padding: 0.7rem; }
+
+        .form-input:focus, input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: rgba(14, 122, 109, 0.5);
+            box-shadow: 0 0 0 4px rgba(14, 122, 109, 0.12);
+        }
+
+        .errorlist { margin: 0; padding-left: 1rem; color: #a23c28; }
+        .table-wrap { overflow-x: auto; }
+        .data-table { width: 100%; border-collapse: collapse; min-width: 620px; }
+        .data-table th, .data-table td { padding: 0.95rem 0.75rem; border-bottom: 1px solid rgba(63, 50, 38, 0.08); text-align: left; vertical-align: middle; }
+        .data-table th { color: var(--muted); font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+
+        .table-photo, .score-avatar {
+            width: 54px;
+            height: 54px;
+            border-radius: 16px;
+            object-fit: cover;
+            background: rgba(31, 43, 36, 0.08);
+        }
+
+        .table-photo--placeholder, .score-avatar--placeholder {
+            width: 54px;
+            height: 54px;
+            border-radius: 16px;
+            font-size: 1rem;
+        }
+
+        .rank-chip { width: 42px; height: 42px; border-radius: 14px; }
+        .progress { width: 100%; height: 10px; border-radius: 999px; background: rgba(31, 43, 36, 0.08); overflow: hidden; }
+        .progress-bar { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--warm)); }
+
+        .empty-state {
+            padding: 1.5rem;
+            border-radius: 22px;
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px dashed rgba(63, 50, 38, 0.18);
+            text-align: center;
+        }
+
+        .inline-link { color: var(--accent-strong); font-weight: 700; }
+        .scoreboard-row { justify-content: space-between; }
+        .score-meta { flex: 1; }
+        .score-trail { color: var(--muted); font-size: 0.85rem; }
+
+        @keyframes float-in {
+            from { opacity: 0; transform: translateY(18px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 1180px) {
+            .page-shell, .metric-grid, .action-grid, .split-layout, .leader-grid, .field-grid, .dual-panel { grid-template-columns: 1fr; }
+            .sidebar { position: static; height: auto; }
+        }
+
+        @media (max-width: 760px) {
+            .page-shell { padding: 1rem; }
+            .main-panel, .sidebar, .panel, .action-card, .leader-card { border-radius: 24px; }
+            .topbar { flex-direction: column; }
+            .button-row { width: 100%; justify-content: flex-start; }
+            .data-table { min-width: 540px; }
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="page-shell">
+        <aside class="sidebar">
+            <a href="{% url 'systemadmin:admin_dashboard' %}" class="brand">
+                <div class="brand-mark">TS</div>
+                <div>
+                    <h1>Tabulation System</h1>
+                    <p>System Admin Console</p>
+                </div>
+            </a>
+
+            <nav class="nav-list" aria-label="System admin navigation">
+                <a class="nav-link {% if request.resolver_match.url_name == 'admin_dashboard' %}is-active{% endif %}" href="{% url 'systemadmin:admin_dashboard' %}">
+                    <span class="nav-icon">DB</span>
+                    <span>Dashboard</span>
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'add_participant' or request.resolver_match.url_name == 'participant_list' %}is-active{% endif %}" href="{% url 'systemadmin:participant_list' %}">
+                    <span class="nav-icon">PT</span>
+                    <span>Participants</span>
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'add_criteria' or request.resolver_match.url_name == 'criteria_list' %}is-active{% endif %}" href="{% url 'systemadmin:criteria_list' %}">
+                    <span class="nav-icon">CR</span>
+                    <span>Criteria</span>
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'tabulation_results' %}is-active{% endif %}" href="{% url 'systemadmin:tabulation_results' %}">
+                    <span class="nav-icon">RS</span>
+                    <span>Results</span>
+                </a>
+            </nav>
+
+            <section class="sidebar-card">
+                <span class="section-label">Overview</span>
+                <div class="mini-stat-grid">
+                    <div class="mini-stat">
+                        <span>Participants</span>
+                        <strong>{{ admin_summary.participant_count }}</strong>
+                    </div>
+                    <div class="mini-stat">
+                        <span>Criteria</span>
+                        <strong>{{ admin_summary.criteria_count }}</strong>
+                    </div>
+                    <div class="mini-stat">
+                        <span>Judges</span>
+                        <strong>{{ admin_summary.judge_count }}</strong>
+                    </div>
+                    <div class="mini-stat">
+                        <span>Scores</span>
+                        <strong>{{ admin_summary.score_count }}</strong>
+                    </div>
+                </div>
+
+                <div class="readiness-card {% if not admin_summary.criteria_ready %}warning{% endif %}">
+                    <strong>Criteria Weight: {{ admin_summary.criteria_total|floatformat:2 }}%</strong>
+                    <p>
+                        {% if admin_summary.criteria_ready %}
+                            The criteria mix is balanced and ready for tabulation.
+                        {% else %}
+                            Keep the total at 100% so weighted scores remain accurate.
+                        {% endif %}
+                    </p>
+                </div>
+            </section>
+        </aside>
+
+        <main class="main-panel">
+            <header class="topbar">
+                <div>
+                    <span class="eyebrow">System Administration</span>
+                    <h1>{% block page_title %}System Admin{% endblock %}</h1>
+                    <p class="page-copy">{% block page_intro %}{% endblock %}</p>
+                </div>
+                <div class="button-row">
+                    {% block page_actions %}{% endblock %}
+                </div>
+            </header>
+
+            {% if messages %}
+                <div class="flash-list">
+                    {% for message in messages %}
+                        <div class="flash {{ message.tags }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    {% block extra_script %}{% endblock %}
+</body>
+</html>

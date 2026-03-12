@@ -1,104 +1,135 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from .models import Participant, Criteria, Score, Judge
-from .forms import ParticipantForm, CriteriaForm
-from django.contrib.auth.decorators import login_required
+from collections import defaultdict
 
-from django.contrib.auth.models import User
+from django.contrib import messages
+from django.db.models import Sum
+from django.http import JsonResponse
+from django.shortcuts import redirect, render
 
-from django.db.models import Avg
+from .forms import CriteriaForm, ParticipantForm
+from .models import Criteria, Judge, Participant, Score
+
+
+def _calculate_results():
+    participants = list(Participant.objects.all())
+    scores_by_participant = defaultdict(list)
+
+    for score in Score.objects.select_related("criteria", "participant"):
+        scores_by_participant[score.participant_id].append(score)
+
+    results = []
+    for participant in participants:
+        total = 0
+        participant_scores = scores_by_participant.get(participant.id, [])
+
+        for score in participant_scores:
+            total += (score.score_value / 100) * score.criteria.percentage
+
+        results.append(
+            {
+                "participant": participant,
+                "score": round(total, 2),
+                "criteria_scored": len(participant_scores),
+            }
+        )
+
+    return sorted(results, key=lambda item: item["score"], reverse=True)
+
+
+def _admin_context():
+    participant_count = Participant.objects.count()
+    criteria_count = Criteria.objects.count()
+    judge_count = Judge.objects.count()
+    score_count = Score.objects.count()
+    criteria_total = round(
+        Criteria.objects.aggregate(total=Sum("percentage"))["total"] or 0,
+        2,
+    )
+
+    return {
+        "admin_summary": {
+            "participant_count": participant_count,
+            "criteria_count": criteria_count,
+            "judge_count": judge_count,
+            "score_count": score_count,
+            "criteria_total": criteria_total,
+            "criteria_ready": criteria_count > 0 and abs(criteria_total - 100) < 0.01,
+        }
+    }
 
 
 def admin_dashboard(request):
-    return render(request, "admin_dashboard.html")
+    results = _calculate_results()
+    context = _admin_context()
+    context.update(
+        {
+            "top_results": results[:5],
+            "has_scores": Score.objects.exists(),
+        }
+    )
+    return render(request, "admin_dashboard.html", context)
+
 
 def add_participant(request):
-
     form = ParticipantForm(request.POST or None, request.FILES or None)
 
     if form.is_valid():
-        form.save()
+        participant = form.save()
+        messages.success(request, f"{participant.name} was added to the tabulation roster.")
         return redirect("systemadmin:participant_list")
 
-    return render(request, "add_participant.html", {
-        "form": form
-    })
+    context = _admin_context()
+    context["form"] = form
+    return render(request, "add_participant.html", context)
+
 
 def participant_list(request):
+    context = _admin_context()
+    context["participants"] = Participant.objects.all()
+    return render(request, "participant_list.html", context)
 
-    participants = Participant.objects.all()
-
-    return render(request, "participant_list.html", {
-        "participants": participants
-    })
 
 def add_criteria(request):
-
     form = CriteriaForm(request.POST or None)
 
     if form.is_valid():
-        form.save()
+        criteria = form.save()
+        messages.success(request, f"{criteria.name} criteria was added successfully.")
         return redirect("systemadmin:criteria_list")
 
-    return render(request, "add_criteria.html", {
-        "form": form
-    })
+    context = _admin_context()
+    context["form"] = form
+    return render(request, "add_criteria.html", context)
+
 
 def criteria_list(request):
+    context = _admin_context()
+    context["criteria"] = Criteria.objects.all()
+    return render(request, "criteria_list.html", context)
 
-    criteria = Criteria.objects.all()
-
-    return render(request, "criteria_list.html", {
-        "criteria": criteria
-    })
 
 def tabulation_results(request):
-
-    participants = Participant.objects.all()
-
-    results = []
-
-    for p in participants:
-
-        scores = Score.objects.filter(participant=p)
-
-        total = 0
-        for s in scores:
-            total += (s.score_value / 100) * s.criteria.percentage
-
-        results.append({
-            "participant": p,
-            "score": round(total, 2)
-        })
-
-    # automatic ranking
-    results = sorted(results, key=lambda x: x["score"], reverse=True)
-
-    return render(request, "results.html", {
-        "results": results
-    })
-
-from django.http import JsonResponse
+    context = _admin_context()
+    context.update(
+        {
+            "results": _calculate_results(),
+            "has_scores": Score.objects.exists(),
+        }
+    )
+    return render(request, "results.html", context)
 
 
 def results_data(request):
-
-    participants = Participant.objects.all()
-
     results = []
 
-    for p in participants:
-
-        scores = Score.objects.filter(participant=p)
-
-        total = 0
-        for s in scores:
-            total += (s.score_value / 100) * s.criteria.percentage
-
-        results.append({
-            "name": p.name,
-            "score": round(total,2)
-        })
-
-    results = sorted(results, key=lambda x: x["score"], reverse=True)
+    for item in _calculate_results():
+        participant = item["participant"]
+        results.append(
+            {
+                "name": participant.name,
+                "photo_url": participant.photo.url if participant.photo else "",
+                "score": item["score"],
+                "criteria_scored": item["criteria_scored"],
+            }
+        )
 
     return JsonResponse({"results": results})

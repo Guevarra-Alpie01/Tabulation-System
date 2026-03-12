@@ -1,10 +1,83 @@
-<h2>Add Participant</h2>
+{% extends "systemadmin/base.html" %}
 
-<form method="POST" enctype="multipart/form-data">
-{% csrf_token %}
+{% block title %}Add Participant{% endblock %}
+{% block page_title %}Add Participant{% endblock %}
+{% block page_intro %}Create a participant profile with a clear display name and optional photo for a cleaner judging experience.{% endblock %}
 
-{{ form.as_p }}
+{% block page_actions %}
+    <a href="{% url 'systemadmin:participant_list' %}" class="button secondary">Participant List</a>
+    <a href="{% url 'systemadmin:admin_dashboard' %}" class="button ghost">Dashboard</a>
+{% endblock %}
 
-<button type="submit">Save Participant</button>
+{% block content %}
+    <section class="split-layout">
+        <article class="panel">
+            <div class="panel-head">
+                <div>
+                    <span class="section-label">New Entry</span>
+                    <h2>Participant details</h2>
+                </div>
+                <span class="pill accent">Step 1</span>
+            </div>
 
-</form>
+            <form method="post" enctype="multipart/form-data" class="form-layout">
+                {% csrf_token %}
+                {{ form.non_field_errors }}
+
+                <div class="field-grid">
+                    <div class="field">
+                        <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+                        {{ form.name }}
+                        <p class="field-help">Use the official candidate name that should appear across judging and results pages.</p>
+                        {{ form.name.errors }}
+                    </div>
+
+                    <div class="field">
+                        <label for="{{ form.photo.id_for_label }}">{{ form.photo.label }}</label>
+                        {{ form.photo }}
+                        <p class="field-help">Optional, but recommended for faster recognition during scoring and ranking review.</p>
+                        {{ form.photo.errors }}
+                    </div>
+                </div>
+
+                <div class="form-footer">
+                    <button type="submit" class="button">Save Participant</button>
+                    <a href="{% url 'systemadmin:participant_list' %}" class="button secondary">Cancel</a>
+                </div>
+            </form>
+        </article>
+
+        <aside class="panel">
+            <div class="panel-head">
+                <div>
+                    <span class="section-label">Guidance</span>
+                    <h2>Before saving</h2>
+                </div>
+            </div>
+
+            <div class="tips-list">
+                <div class="tip-item">
+                    <div class="check-index">A</div>
+                    <div>
+                        <strong>Keep names consistent</strong>
+                        <p class="panel-copy">Match the participant name to the event program and judge-facing materials.</p>
+                    </div>
+                </div>
+                <div class="tip-item">
+                    <div class="check-index">B</div>
+                    <div>
+                        <strong>Use a clear photo</strong>
+                        <p class="panel-copy">Portrait-style images make live judging and result verification easier.</p>
+                    </div>
+                </div>
+                <div class="tip-item">
+                    <div class="check-index">C</div>
+                    <div>
+                        <strong>Confirm roster count</strong>
+                        <p class="panel-copy">There are currently {{ admin_summary.participant_count }} participant{{ admin_summary.participant_count|pluralize }} in the system.</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </section>
+{% endblock %}

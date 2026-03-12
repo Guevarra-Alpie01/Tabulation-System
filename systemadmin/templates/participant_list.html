@@ -1,29 +1,73 @@
-<h2>Participants</h2>
+{% extends "systemadmin/base.html" %}
 
-<a href="{% url 'systemadmin:add_participant' %}">Add Participant</a>
+{% block title %}Participants{% endblock %}
+{% block page_title %}Participants{% endblock %}
+{% block page_intro %}Review the current event roster, confirm photo coverage, and move back into participant creation when needed.{% endblock %}
 
-<table border="1">
+{% block page_actions %}
+    <a href="{% url 'systemadmin:add_participant' %}" class="button">Add Participant</a>
+    <a href="{% url 'systemadmin:tabulation_results' %}" class="button secondary">View Results</a>
+{% endblock %}
 
-<tr>
-<th>ID</th>
-<th>Name</th>
-<th>Photo</th>
-</tr>
+{% block content %}
+    <section class="panel">
+        <div class="panel-head">
+            <div>
+                <span class="section-label">Roster</span>
+                <h2>Participant list</h2>
+            </div>
+            <span class="pill accent">{{ admin_summary.participant_count }} total</span>
+        </div>
 
-{% for p in participants %}
-
-<tr>
-<td>{{p.id}}</td>
-<td>{{p.name}}</td>
-
-<td>
-{% if p.photo %}
-<img src="{{p.photo.url}}" width="80">
-{% endif %}
-</td>
-
-</tr>
-
-{% endfor %}
-
-</table>
+        {% if participants %}
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Participant</th>
+                            <th>Photo Status</th>
+                            <th>Quick Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for participant in participants %}
+                            <tr>
+                                <td><div class="rank-chip">{{ participant.id }}</div></td>
+                                <td>
+                                    <div class="identity-cell">
+                                        {% if participant.photo %}
+                                            <img class="table-photo" src="{{ participant.photo.url }}" alt="{{ participant.name }}">
+                                        {% else %}
+                                            <div class="table-photo table-photo--placeholder">{{ participant.name|slice:":1" }}</div>
+                                        {% endif %}
+                                        <div>
+                                            <strong>{{ participant.name }}</strong>
+                                            <span class="table-subtext">Visible to judges during scoring</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if participant.photo %}
+                                        <span class="pill success">Photo Uploaded</span>
+                                    {% else %}
+                                        <span class="pill warning">Photo Missing</span>
+                                    {% endif %}
+                                </td>
+                                <td><div class="table-actions"><a href="{% url 'systemadmin:tabulation_results' %}" class="inline-link">Check ranking</a></div></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No participants added yet</h3>
+                <p>Start by creating participant profiles so the judges have candidates to score.</p>
+                <div class="button-row" style="justify-content:center; margin-top:1rem;">
+                    <a href="{% url 'systemadmin:add_participant' %}" class="button">Add the first participant</a>
+                </div>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}
