@@ -56,6 +56,13 @@
             margin-top: 0.45rem;
         }
 
+        .broadcast-status {
+            margin-top: 0.45rem;
+            font-size: 0.94rem;
+            font-weight: 700;
+            color: var(--success);
+        }
+
         .live-banner {
             padding: 1rem 1.05rem;
             border-radius: 20px;
@@ -201,15 +208,6 @@
                         Judges are scoring every participant from 1 to 100 for this criterion. {{ live_submission_count }} of
                         {{ admin_summary.judge_count }} judge{{ admin_summary.judge_count|pluralize }} have submitted.
                     </p>
-                    <div class="button-row" style="margin-top: 0.85rem;">
-                        <form method="post"
-                              action="{% url 'systemadmin:stop_live_criterion' %}"
-                              class="inline-form"
-                              onsubmit="return confirm('Stop the live broadcast for {{ active_live_session.criterion.name|escapejs }}? Judges will return to standby.');">
-                            {% csrf_token %}
-                            <button type="submit" class="button danger">Stop Live</button>
-                        </form>
-                    </div>
                 </div>
             {% else %}
                 <div class="callout">
@@ -223,15 +221,25 @@
                         <div class="broadcast-row {% if active_live_session and active_live_session.criterion_id == criterion.id %}is-live{% endif %}">
                             <div>
                                 <h3>{{ forloop.counter|stringformat:"02d" }}. {{ criterion.name }}</h3>
-                                <p>Broadcast this criterion to every judge for the current live scoring round.</p>
                                 <div class="broadcast-meta">
                                     <span class="pill accent">{{ criterion.percentage|floatformat:2 }}%</span>
                                     <span class="pill">Order {{ criterion.display_order }}</span>
                                 </div>
+                                {% if active_live_session and active_live_session.criterion_id == criterion.id %}
+                                    <div class="broadcast-status">
+                                        Live now. {{ live_submission_count }} of {{ admin_summary.judge_count }} judge{{ admin_summary.judge_count|pluralize }} submitted.
+                                    </div>
+                                {% endif %}
                             </div>
                             <div class="button-row">
                                 {% if active_live_session and active_live_session.criterion_id == criterion.id %}
-                                    <button type="button" class="button secondary" disabled>On Air</button>
+                                    <form method="post"
+                                          action="{% url 'systemadmin:stop_live_criterion' %}"
+                                          class="inline-form"
+                                          onsubmit="return confirm('Stop the live broadcast for {{ active_live_session.criterion.name|escapejs }}? Judges will return to standby.');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="button danger">Stop Live</button>
+                                    </form>
                                 {% else %}
                                     <form method="post"
                                           action="{% url 'systemadmin:activate_live_criterion' criterion.id %}"

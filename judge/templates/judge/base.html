@@ -39,6 +39,11 @@
             padding: 1.25rem;
         }
 
+        .page.page--focus-live {
+            max-width: 1360px;
+            padding: 1rem;
+        }
+
         .shell,
         .panel {
             background: var(--surface);
@@ -49,6 +54,10 @@
 
         .shell {
             padding: 1.25rem;
+        }
+
+        .shell.shell--focus-live {
+            padding: 1rem;
         }
 
         .topbar {
@@ -271,11 +280,13 @@
 
         @media (max-width: 760px) {
             .page { padding: 0.9rem; }
+            .page.page--focus-live { padding: 0.75rem; }
             .shell,
             .metric-card,
             .table-panel,
             .form-panel,
             .hero-panel { border-radius: 20px; }
+            .shell.shell--focus-live { padding: 0.85rem; }
             .topbar { flex-direction: column; }
             .score-row { grid-template-columns: 1fr; }
             .data-table { min-width: 520px; }
@@ -284,22 +295,24 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body>
-    <div class="page">
-        <div class="shell">
-            <header class="topbar">
-                <div>
-                    <span class="eyebrow">Judge Access</span>
-                    <h1>{% block page_title %}Judge Dashboard{% endblock %}</h1>
-                    <p>{% block page_intro %}{% endblock %}</p>
-                </div>
-                <div class="button-row">
-                    {% block page_actions %}{% endblock %}
-                    <form method="post" action="{% url 'logout' %}">
-                        {% csrf_token %}
-                        <button type="submit" class="button secondary">Log Out</button>
-                    </form>
-                </div>
-            </header>
+    <div class="page{% if focus_live_mode %} page--focus-live{% endif %}">
+        <div class="shell{% if focus_live_mode %} shell--focus-live{% endif %}">
+            {% if not focus_live_mode %}
+                <header class="topbar">
+                    <div>
+                        <span class="eyebrow">Judge Access</span>
+                        <h1>{% block page_title %}Judge Dashboard{% endblock %}</h1>
+                        <p>{% block page_intro %}{% endblock %}</p>
+                    </div>
+                    <div class="button-row">
+                        {% block page_actions %}{% endblock %}
+                        <form method="post" action="{% url 'logout' %}">
+                            {% csrf_token %}
+                            <button type="submit" class="button secondary">Log Out</button>
+                        </form>
+                    </div>
+                </header>
+            {% endif %}
 
             {% if messages %}
                 <div class="alert-list">

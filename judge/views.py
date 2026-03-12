@@ -35,7 +35,7 @@ def _build_live_score_rows(judge, active_session, posted_scores=None):
         }
 
     rows = []
-    for participant in participants:
+    for candidate_number, participant in enumerate(participants, start=1):
         score_value = ""
         if posted_scores and participant.id in posted_scores:
             score_value = posted_scores[participant.id]
@@ -45,6 +45,7 @@ def _build_live_score_rows(judge, active_session, posted_scores=None):
         rows.append(
             {
                 "participant": participant,
+                "candidate_number": candidate_number,
                 "score_value": score_value,
             }
         )
@@ -72,6 +73,7 @@ def _build_dashboard_context(judge, posted_scores=None):
         "active_live_session": active_live_session,
         "live_submission": live_submission,
         "live_score_rows": live_score_rows,
+        "focus_live_mode": bool(active_live_session),
     }
 
 

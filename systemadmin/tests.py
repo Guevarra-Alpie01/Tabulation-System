@@ -390,6 +390,32 @@ class LiveBroadcastWorkflowTests(AdminAccessTestCase):
             [self.participant_two.id, self.participant_one.id],
         )
 
+    def test_judge_live_dashboard_uses_candidate_labels_and_focus_mode(self):
+        LiveCriteriaSession.objects.create(
+            criterion=self.production,
+            activated_by=self.admin_user,
+            is_active=True,
+        )
+        self.participant_one.display_order = 2
+        self.participant_one.save(update_fields=["display_order"])
+        self.participant_two.display_order = 1
+        self.participant_two.save(update_fields=["display_order"])
+        self.client.force_login(self.judge.user)
+
+        response = self.client.get(reverse("judge:judge_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["focus_live_mode"])
+        self.assertEqual(
+            [row["candidate_number"] for row in response.context["live_score_rows"]],
+            [1, 2],
+        )
+        self.assertContains(response, "Candidate #1")
+        self.assertContains(response, "Candidate #2")
+        self.assertContains(response, "60.00% Weight")
+        self.assertNotContains(response, "Judge Access")
+        self.assertNotContains(response, "Order 1")
+
     def test_judge_can_submit_live_scores_for_all_participants(self):
         session = LiveCriteriaSession.objects.create(
             criterion=self.production,
