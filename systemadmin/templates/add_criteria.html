@@ -1,8 +1,14 @@
 {% extends "systemadmin/base.html" %}
 
-{% block title %}Add Criteria{% endblock %}
-{% block page_title %}Add Criteria{% endblock %}
-{% block page_intro %}Add a scoring category and assign its weight so the final tabulation stays transparent and balanced.{% endblock %}
+{% block title %}{% if is_edit_mode %}Edit Criteria{% else %}Add Criteria{% endif %}{% endblock %}
+{% block page_title %}{% if is_edit_mode %}Edit Criteria{% else %}Add Criteria{% endif %}{% endblock %}
+{% block page_intro %}
+    {% if is_edit_mode %}
+        Update the criterion name or weight. Changes are saved to the database immediately and will affect live tabulation results.
+    {% else %}
+        Add a scoring category and assign its weight so the final tabulation stays transparent and balanced.
+    {% endif %}
+{% endblock %}
 
 {% block page_actions %}
     <a href="{% url 'systemadmin:criteria_list' %}" class="button secondary">Criteria List</a>
@@ -15,10 +21,16 @@
             <div class="panel-head">
                 <div>
                     <span class="section-label">Scoring Setup</span>
-                    <h2>Criteria details</h2>
+                    <h2>{% if is_edit_mode %}Update criteria details{% else %}Criteria details{% endif %}</h2>
                 </div>
-                <span class="pill accent">Step 2</span>
+                <span class="pill accent">{% if is_edit_mode %}Edit{% else %}Step 2{% endif %}</span>
             </div>
+
+            {% if is_edit_mode and linked_score_count %}
+                <div class="callout warning">
+                    This criterion is linked to {{ linked_score_count }} score entr{{ linked_score_count|pluralize:"y,ies" }}. Updating it will change how those results are calculated.
+                </div>
+            {% endif %}
 
             <form method="post" class="form-layout">
                 {% csrf_token %}
@@ -41,7 +53,7 @@
                 </div>
 
                 <div class="form-footer">
-                    <button type="submit" class="button">Save Criteria</button>
+                    <button type="submit" class="button">{% if is_edit_mode %}Save Changes{% else %}Save Criteria{% endif %}</button>
                     <a href="{% url 'systemadmin:criteria_list' %}" class="button secondary">Cancel</a>
                 </div>
             </form>
@@ -50,14 +62,14 @@
         <aside class="panel">
             <div class="panel-head">
                 <div>
-                    <span class="section-label">Weight Check</span>
-                    <h2>Current criteria balance</h2>
+                    <span class="section-label">{% if is_edit_mode %}Impact{% else %}Weight Check{% endif %}</span>
+                    <h2>{% if is_edit_mode %}Criteria update notes{% else %}Current criteria balance{% endif %}</h2>
                 </div>
             </div>
 
             {% if admin_summary.criteria_ready %}
                 <div class="callout success">
-                    The current criteria already total {{ admin_summary.criteria_total|floatformat:2 }}%. Add new entries only if you plan to rebalance the full scoring mix.
+                    The current criteria already total {{ admin_summary.criteria_total|floatformat:2 }}%. Add or update entries only if you plan to rebalance the full scoring mix.
                 </div>
             {% else %}
                 <div class="callout warning">
@@ -83,8 +95,14 @@
                 <div class="tip-item">
                     <div class="check-index">3</div>
                     <div>
-                        <strong>Keep totals accurate</strong>
-                        <p class="panel-copy">{{ admin_summary.criteria_count }} criteria currently contribute to the final computation.</p>
+                        <strong>Protect result accuracy</strong>
+                        <p class="panel-copy">
+                            {% if is_edit_mode %}
+                                Saving changes updates the stored criterion and future result calculations immediately.
+                            {% else %}
+                                {{ admin_summary.criteria_count }} criteria currently contribute to the final computation.
+                            {% endif %}
+                        </p>
                     </div>
                 </div>
             </div>

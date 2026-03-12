@@ -2,7 +2,7 @@
 
 {% block title %}Criteria{% endblock %}
 {% block page_title %}Judging Criteria{% endblock %}
-{% block page_intro %}Review the scoring framework, check total weight, and keep each criterion clear enough for judges to score consistently.{% endblock %}
+{% block page_intro %}Review the scoring framework, check total weight, and edit or remove criteria while keeping the stored criteria set accurate in the database.{% endblock %}
 
 {% block page_actions %}
     <a href="{% url 'systemadmin:add_criteria' %}" class="button">Add Criteria</a>
@@ -36,17 +36,38 @@
                         <tr>
                             <th>Criteria</th>
                             <th>Weight</th>
+                            <th>Linked Scores</th>
                             <th>Visual Share</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for criterion in criteria %}
                             <tr>
-                                <td><strong>{{ criterion.name }}</strong></td>
-                                <td><span class="pill accent">{{ criterion.percentage|floatformat:2 }}%</span></td>
+                                <td>
+                                    <strong>{{ criterion.name }}</strong>
+                                </td>
+                                <td>
+                                    <span class="pill accent">{{ criterion.percentage|floatformat:2 }}%</span>
+                                </td>
+                                <td>
+                                    <span class="pill">{{ criterion.score_count }}</span>
+                                </td>
                                 <td>
                                     <div class="progress" aria-label="{{ criterion.name }} weight">
                                         <div class="progress-bar" style="width: {{ criterion.percentage }}%;"></div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="table-actions">
+                                        <a href="{% url 'systemadmin:edit_criteria' criterion.id %}" class="button secondary button-small">Edit</a>
+                                        <form method="post"
+                                              action="{% url 'systemadmin:delete_criteria' criterion.id %}"
+                                              class="inline-form"
+                                              onsubmit="return confirm('Delete {{ criterion.name|escapejs }}?{% if criterion.score_count %} This will also remove {{ criterion.score_count }} linked score record{{ criterion.score_count|pluralize }}.{% endif %}');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="button danger button-small">Delete</button>
+                                        </form>
                                     </div>
                                 </td>
                             </tr>

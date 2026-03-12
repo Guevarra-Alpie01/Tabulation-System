@@ -2,43 +2,83 @@
 
 {% block title %}Admin Dashboard{% endblock %}
 {% block page_title %}System Admin Dashboard{% endblock %}
-{% block page_intro %}Manage event setup, review readiness, and move directly into participant, criteria, or results workflows from one clean control center.{% endblock %}
+{% block page_intro %}A clean local dashboard for managing criteria, participants, and results without any internet dependency or external assets.{% endblock %}
 
 {% block page_actions %}
     <a href="{% url 'systemadmin:add_participant' %}" class="button">Add Participant</a>
     <a href="{% url 'systemadmin:add_criteria' %}" class="button secondary">Add Criteria</a>
-    <a href="{% url 'systemadmin:tabulation_results' %}" class="button ghost">View Results</a>
 {% endblock %}
 
 {% block content %}
+    <section class="panel dashboard-hero">
+        <div class="dashboard-hero-grid">
+            <div>
+                <span class="section-label">Local Deployment Ready</span>
+                <h2>Run setup, scoring prep, and live monitoring from one offline-friendly admin workspace.</h2>
+                <p class="hero-note">
+                    This interface uses only local template, CSS, and JavaScript resources, making it stable for local Django deployment on desktop, tablet, and mobile screens.
+                </p>
+                <div class="hero-actions" style="margin-top: 1rem;">
+                    <a href="{% url 'systemadmin:participant_list' %}" class="button">Manage Participants</a>
+                    <a href="{% url 'systemadmin:criteria_list' %}" class="button secondary">Manage Criteria</a>
+                    <a href="{% url 'systemadmin:tabulation_results' %}" class="button ghost">Open Results</a>
+                </div>
+            </div>
+
+            <div class="hero-status-list">
+                <div class="hero-status-item">
+                    <div class="check-index">01</div>
+                    <div>
+                        <strong>Participant roster</strong>
+                        <p>{{ admin_summary.participant_count }} participant{{ admin_summary.participant_count|pluralize }} currently available for scoring.</p>
+                    </div>
+                </div>
+                <div class="hero-status-item">
+                    <div class="check-index">02</div>
+                    <div>
+                        <strong>Criteria balance</strong>
+                        <p>Total configured weight is {{ admin_summary.criteria_total|floatformat:2 }}%.</p>
+                    </div>
+                </div>
+                <div class="hero-status-item">
+                    <div class="check-index">03</div>
+                    <div>
+                        <strong>Score activity</strong>
+                        <p>{{ admin_summary.score_count }} score entr{{ admin_summary.score_count|pluralize:"y,ies" }} have been recorded so far.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <section class="metric-grid">
         <article class="metric-card">
             <span>Registered Participants</span>
             <strong>{{ admin_summary.participant_count }}</strong>
-            <p>Contestant profiles available for judges to score.</p>
+            <p>Profiles listed for judge-facing scoring pages.</p>
         </article>
         <article class="metric-card">
-            <span>Active Criteria</span>
+            <span>Judging Criteria</span>
             <strong>{{ admin_summary.criteria_count }}</strong>
-            <p>Judging dimensions currently shaping the final ranking.</p>
+            <p>Scoring categories active in the current event setup.</p>
         </article>
         <article class="metric-card">
             <span>Assigned Judges</span>
             <strong>{{ admin_summary.judge_count }}</strong>
-            <p>Judge accounts connected to the scoring process.</p>
+            <p>Judge accounts connected to the tabulation process.</p>
         </article>
         <article class="metric-card">
             <span>Submitted Scores</span>
             <strong>{{ admin_summary.score_count }}</strong>
-            <p>Individual entries already recorded in the system.</p>
+            <p>Weighted entries included in the live ranking.</p>
         </article>
     </section>
 
     <section class="action-grid">
         <article class="action-card">
-            <span class="section-label">Participants</span>
-            <h3>Build the candidate roster</h3>
-            <p>Add participant names and profile photos so the judging panel sees a clean, recognizable lineup.</p>
+            <span class="section-label">Step 1</span>
+            <h3>Add and review participants</h3>
+            <p>Create the participant roster and confirm each profile is ready for judge review on smaller and larger screens.</p>
             <div class="button-row" style="justify-content:flex-start;">
                 <a href="{% url 'systemadmin:add_participant' %}" class="button">Add Participant</a>
                 <a href="{% url 'systemadmin:participant_list' %}" class="button secondary">View List</a>
@@ -46,9 +86,9 @@
         </article>
 
         <article class="action-card">
-            <span class="section-label">Criteria</span>
-            <h3>Define the scoring framework</h3>
-            <p>Keep the judging criteria lean and deliberate. Make sure the combined percentage reaches exactly 100%.</p>
+            <span class="section-label">Step 2</span>
+            <h3>Set the criteria weights</h3>
+            <p>Keep the scoring framework clear and make sure the full criteria total stays at 100% for accurate results.</p>
             <div class="button-row" style="justify-content:flex-start;">
                 <a href="{% url 'systemadmin:add_criteria' %}" class="button">Add Criteria</a>
                 <a href="{% url 'systemadmin:criteria_list' %}" class="button secondary">Review Criteria</a>
@@ -56,11 +96,11 @@
         </article>
 
         <article class="action-card">
-            <span class="section-label">Results</span>
-            <h3>Monitor the live scoreboard</h3>
-            <p>Open the tabulation results page to follow rankings as scores come in and verify the current leaderboard.</p>
+            <span class="section-label">Step 3</span>
+            <h3>Track current standings</h3>
+            <p>Open the results page to monitor rankings and verify the latest scores from the local tabulation feed.</p>
             <div class="button-row" style="justify-content:flex-start;">
-                <a href="{% url 'systemadmin:tabulation_results' %}" class="button">Open Results</a>
+                <a href="{% url 'systemadmin:tabulation_results' %}" class="button">View Results</a>
             </div>
         </article>
     </section>
@@ -73,9 +113,9 @@
                     <h2>Setup checklist</h2>
                 </div>
                 {% if admin_summary.criteria_ready %}
-                    <span class="pill success">Scoring Ready</span>
+                    <span class="pill success">Ready to score</span>
                 {% else %}
-                    <span class="pill warning">Needs Attention</span>
+                    <span class="pill warning">Needs update</span>
                 {% endif %}
             </div>
 
@@ -83,21 +123,21 @@
                 <div class="check-item">
                     <div class="check-index">1</div>
                     <div>
-                        <strong>Participant setup</strong>
-                        <p class="panel-copy">{{ admin_summary.participant_count }} participant{{ admin_summary.participant_count|pluralize }} added to the event roster.</p>
+                        <strong>Participants</strong>
+                        <p class="panel-copy">{{ admin_summary.participant_count }} participant{{ admin_summary.participant_count|pluralize }} have been added to the event roster.</p>
                     </div>
                     {% if admin_summary.participant_count %}
                         <span class="pill success">Ready</span>
                     {% else %}
-                        <span class="pill warning">Empty</span>
+                        <span class="pill warning">Missing</span>
                     {% endif %}
                 </div>
 
                 <div class="check-item">
                     <div class="check-index">2</div>
                     <div>
-                        <strong>Criteria weighting</strong>
-                        <p class="panel-copy">Current total: {{ admin_summary.criteria_total|floatformat:2 }}% of the recommended 100%.</p>
+                        <strong>Criteria total</strong>
+                        <p class="panel-copy">Current overall weight: {{ admin_summary.criteria_total|floatformat:2 }}%.</p>
                     </div>
                     {% if admin_summary.criteria_ready %}
                         <span class="pill success">Balanced</span>
@@ -109,13 +149,13 @@
                 <div class="check-item">
                     <div class="check-index">3</div>
                     <div>
-                        <strong>Score intake</strong>
+                        <strong>Live score intake</strong>
                         <p class="panel-copy">{{ admin_summary.score_count }} score entr{{ admin_summary.score_count|pluralize:"y,ies" }} received from {{ admin_summary.judge_count }} judge{{ admin_summary.judge_count|pluralize }}.</p>
                     </div>
                     {% if has_scores %}
-                        <span class="pill success">Live</span>
+                        <span class="pill accent">Active</span>
                     {% else %}
-                        <span class="pill accent">Waiting</span>
+                        <span class="pill">Waiting</span>
                     {% endif %}
                 </div>
             </div>
@@ -125,9 +165,9 @@
             <div class="panel-head">
                 <div>
                     <span class="section-label">Leaderboard</span>
-                    <h2>Current leaders</h2>
+                    <h2>Current top participants</h2>
                 </div>
-                <a href="{% url 'systemadmin:tabulation_results' %}" class="inline-link">Full results</a>
+                <a href="{% url 'systemadmin:tabulation_results' %}" class="inline-link">See full results</a>
             </div>
 
             {% if top_results %}
@@ -152,8 +192,8 @@
                 </div>
             {% else %}
                 <div class="empty-state">
-                    <h3>No participants yet</h3>
-                    <p>Add participants and criteria to start building a live leaderboard.</p>
+                    <h3>No results yet</h3>
+                    <p>Add participants, configure criteria, and start scoring to populate the leaderboard.</p>
                 </div>
             {% endif %}
         </article>

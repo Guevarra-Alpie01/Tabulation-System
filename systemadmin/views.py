@@ -1,9 +1,10 @@
 from collections import defaultdict
 
 from django.contrib import messages
-from django.db.models import Sum
+from django.db.models import Count, Sum
 from django.http import JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from .forms import CriteriaForm, ParticipantForm
 from .models import Criteria, Judge, Participant, Score
@@ -98,13 +99,53 @@ def add_criteria(request):
 
     context = _admin_context()
     context["form"] = form
+    context["is_edit_mode"] = False
     return render(request, "add_criteria.html", context)
 
 
 def criteria_list(request):
     context = _admin_context()
-    context["criteria"] = Criteria.objects.all()
+    context["criteria"] = Criteria.objects.annotate(score_count=Count("score")).order_by("id")
     return render(request, "criteria_list.html", context)
+
+
+def edit_criteria(request, criteria_id):
+    criterion = get_object_or_404(Criteria, pk=criteria_id)
+    form = CriteriaForm(request.POST or None, instance=criterion)
+
+    if form.is_valid():
+        updated_criterion = form.save()
+        messages.success(request, f"{updated_criterion.name} criteria was updated successfully.")
+        return redirect("systemadmin:criteria_list")
+
+    context = _admin_context()
+    context.update(
+        {
+            "form": form,
+            "is_edit_mode": True,
+            "criterion": criterion,
+            "linked_score_count": Score.objects.filter(criteria=criterion).count(),
+        }
+    )
+    return render(request, "add_criteria.html", context)
+
+
+@require_POST
+def delete_criteria(request, criteria_id):
+    criterion = get_object_or_404(Criteria, pk=criteria_id)
+    linked_score_count = Score.objects.filter(criteria=criterion).count()
+    criterion_name = criterion.name
+    criterion.delete()
+
+    if linked_score_count:
+        messages.success(
+            request,
+            f"{criterion_name} criteria was deleted. {linked_score_count} linked score records were also removed.",
+        )
+    else:
+        messages.success(request, f"{criterion_name} criteria was deleted successfully.")
+
+    return redirect("systemadmin:criteria_list")
 
 
 def tabulation_results(request):
