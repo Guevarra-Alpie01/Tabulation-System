@@ -22,7 +22,7 @@ def judge_dashboard(request):
 @judge_required
 def score_participant(request, participant_id):
     participant = get_object_or_404(Participant, id=participant_id)
-    criteria_list = Criteria.objects.all()
+    criteria_list = Criteria.objects.order_by("display_order", "id")
     judge = Judge.objects.get(user=request.user)
 
     if request.method == "POST":

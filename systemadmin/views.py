@@ -1,3 +1,4 @@
+import json
 from collections import defaultdict
 
 from django.contrib import messages
@@ -35,6 +36,19 @@ def _calculate_results():
         )
 
     return sorted(results, key=lambda item: item["score"], reverse=True)
+
+
+def _normalize_criteria_order():
+    criteria = list(Criteria.objects.order_by("display_order", "id"))
+    changed = []
+
+    for index, criterion in enumerate(criteria, start=1):
+        if criterion.display_order != index:
+            criterion.display_order = index
+            changed.append(criterion)
+
+    if changed:
+        Criteria.objects.bulk_update(changed, ["display_order"])
 
 
 def _admin_context():
@@ -220,8 +234,54 @@ def add_criteria(request):
 @admin_required
 def criteria_list(request):
     context = _admin_context()
-    context["criteria"] = Criteria.objects.annotate(score_count=Count("score")).order_by("id")
+    context["criteria"] = Criteria.objects.annotate(score_count=Count("score")).order_by("display_order", "id")
     return render(request, "criteria_list.html", context)
+
+
+@require_POST
+@admin_required
+def reorder_criteria(request):
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({"success": False, "error": "Invalid request payload."}, status=400)
+
+    ordered_ids = payload.get("ordered_ids")
+    if not isinstance(ordered_ids, list) or not ordered_ids:
+        return JsonResponse({"success": False, "error": "A full criteria order is required."}, status=400)
+
+    normalized_ids = []
+    seen_ids = set()
+
+    for raw_id in ordered_ids:
+        try:
+            criterion_id = int(raw_id)
+        except (TypeError, ValueError):
+            return JsonResponse({"success": False, "error": "Criteria order contains an invalid id."}, status=400)
+
+        if criterion_id in seen_ids:
+            return JsonResponse({"success": False, "error": "Criteria order contains duplicate ids."}, status=400)
+
+        seen_ids.add(criterion_id)
+        normalized_ids.append(criterion_id)
+
+    criteria = list(Criteria.objects.filter(id__in=normalized_ids))
+    if len(criteria) != len(normalized_ids) or len(normalized_ids) != Criteria.objects.count():
+        return JsonResponse({"success": False, "error": "Criteria order must include every saved criterion."}, status=400)
+
+    criteria_by_id = {criterion.id: criterion for criterion in criteria}
+    changed = []
+
+    for index, criterion_id in enumerate(normalized_ids, start=1):
+        criterion = criteria_by_id[criterion_id]
+        if criterion.display_order != index:
+            criterion.display_order = index
+            changed.append(criterion)
+
+    if changed:
+        Criteria.objects.bulk_update(changed, ["display_order"])
+
+    return JsonResponse({"success": True})
 
 
 @admin_required
@@ -253,6 +313,7 @@ def delete_criteria(request, criteria_id):
     linked_score_count = Score.objects.filter(criteria=criterion).count()
     criterion_name = criterion.name
     criterion.delete()
+    _normalize_criteria_order()
 
     if linked_score_count:
         messages.success(

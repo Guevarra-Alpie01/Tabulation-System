@@ -17,6 +17,7 @@ urlpatterns = [
     path("judges/<int:judge_id>/edit/", views.edit_judge, name="edit_judge"),
     path("judges/<int:judge_id>/delete/", views.delete_judge, name="delete_judge"),
     path("criteria/", views.criteria_list, name="criteria_list"),
+    path("criteria/reorder/", views.reorder_criteria, name="reorder_criteria"),
     path("add-criteria/", views.add_criteria, name="add_criteria"),
     path("criteria/<int:criteria_id>/edit/", views.edit_criteria, name="edit_criteria"),
     path("criteria/<int:criteria_id>/delete/", views.delete_criteria, name="delete_criteria"),

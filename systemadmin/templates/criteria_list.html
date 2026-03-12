@@ -4,6 +4,98 @@
 {% block page_title %}Judging Criteria{% endblock %}
 {% block page_intro %}Review the scoring framework, check total weight, and edit or remove criteria while keeping the stored criteria set accurate in the database.{% endblock %}
 
+{% block extra_head %}
+    <style>
+        .criteria-order-help {
+            margin-top: -0.2rem;
+        }
+
+        .criteria-order-status {
+            margin-top: 0.75rem;
+        }
+
+        .criteria-order-status.is-info {
+            background: var(--accent-soft);
+            border-color: #bfdbfe;
+            color: var(--accent);
+        }
+
+        .criteria-order-status.is-error {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: var(--danger);
+        }
+
+        .criteria-row {
+            cursor: grab;
+        }
+
+        .criteria-row.is-dragging {
+            opacity: 0.62;
+            background: var(--accent-soft);
+        }
+
+        .criteria-row td {
+            transition: background-color 160ms ease;
+        }
+
+        .criteria-order-cell {
+            width: 150px;
+        }
+
+        .criteria-order-stack {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+        }
+
+        .drag-handle {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px dashed var(--border-strong);
+            background: var(--surface-muted);
+            color: var(--muted);
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            user-select: none;
+        }
+
+        .criteria-row.is-dragging .drag-handle {
+            cursor: grabbing;
+            border-style: solid;
+        }
+
+        .order-mobile-controls {
+            display: none;
+            margin-top: 0.55rem;
+            gap: 0.4rem;
+        }
+
+        .order-mobile-controls .button {
+            min-height: 34px;
+            padding: 0.4rem 0.72rem;
+        }
+
+        .criteria-sequence-note {
+            margin: 0.35rem 0 0;
+            color: var(--muted);
+            line-height: 1.55;
+        }
+
+        @media (max-width: 768px) {
+            .order-mobile-controls {
+                display: inline-flex;
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+{% endblock %}
+
 {% block page_actions %}
     <a href="{% url 'systemadmin:add_criteria' %}" class="button">Add Criteria</a>
     <a href="{% url 'systemadmin:admin_dashboard' %}" class="button secondary">Dashboard</a>
@@ -20,20 +112,27 @@
         </div>
     {% endif %}
 
+    <div class="callout criteria-order-help">
+        Drag rows to set the judging flow. The saved order here will also control the sequence judges see while scoring.
+    </div>
+
     <section class="panel">
         <div class="panel-head">
             <div>
                 <span class="section-label">Framework</span>
                 <h2>Criteria list</h2>
+                <p class="criteria-sequence-note">Arrange the categories from first to last so judging follows the exact event sequence.</p>
             </div>
             <span class="pill accent">{{ admin_summary.criteria_count }} total</span>
         </div>
 
         {% if criteria %}
+            <div class="callout criteria-order-status" data-criteria-order-status hidden aria-live="polite"></div>
             <div class="table-wrap">
                 <table class="data-table">
                     <thead>
                         <tr>
+                            <th>Order</th>
                             <th>Criteria</th>
                             <th>Weight</th>
                             <th>Linked Scores</th>
@@ -41,9 +140,19 @@
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody data-reorder-body data-reorder-url="{% url 'systemadmin:reorder_criteria' %}">
                         {% for criterion in criteria %}
-                            <tr>
+                            <tr class="criteria-row" data-criterion-row data-criterion-id="{{ criterion.id }}" draggable="true">
+                                <td class="criteria-order-cell">
+                                    <div class="criteria-order-stack">
+                                        <span class="drag-handle" aria-hidden="true">::</span>
+                                        <span class="pill accent" data-order-number>{{ forloop.counter|stringformat:"02d" }}</span>
+                                    </div>
+                                    <div class="order-mobile-controls">
+                                        <button type="button" class="button secondary button-small" data-shift-direction="-1">Up</button>
+                                        <button type="button" class="button secondary button-small" data-shift-direction="1">Down</button>
+                                    </div>
+                                </td>
                                 <td>
                                     <strong>{{ criterion.name }}</strong>
                                 </td>
@@ -85,4 +194,195 @@
             </div>
         {% endif %}
     </section>
+{% endblock %}
+
+{% block extra_script %}
+    <script>
+        (function () {
+            const reorderBody = document.querySelector("[data-reorder-body]");
+            const statusBox = document.querySelector("[data-criteria-order-status]");
+
+            if (!reorderBody || !statusBox) {
+                return;
+            }
+
+            const reorderUrl = reorderBody.dataset.reorderUrl;
+            let draggedRow = null;
+            let previousOrder = [];
+
+            function getRows() {
+                return Array.from(reorderBody.querySelectorAll("[data-criterion-row]"));
+            }
+
+            function getOrder() {
+                return getRows().map((row) => row.dataset.criterionId);
+            }
+
+            function updateMoveButtons() {
+                const rows = getRows();
+                rows.forEach((row, index) => {
+                    const upButton = row.querySelector("[data-shift-direction='-1']");
+                    const downButton = row.querySelector("[data-shift-direction='1']");
+
+                    if (upButton) {
+                        upButton.disabled = index === 0;
+                    }
+
+                    if (downButton) {
+                        downButton.disabled = index === rows.length - 1;
+                    }
+                });
+            }
+
+            function syncVisibleOrder() {
+                getRows().forEach((row, index) => {
+                    const orderPill = row.querySelector("[data-order-number]");
+                    if (orderPill) {
+                        orderPill.textContent = String(index + 1).padStart(2, "0");
+                    }
+                });
+
+                updateMoveButtons();
+            }
+
+            function renderOrder(orderedIds) {
+                const rowsById = new Map(getRows().map((row) => [row.dataset.criterionId, row]));
+
+                orderedIds.forEach((criterionId) => {
+                    const row = rowsById.get(String(criterionId));
+                    if (row) {
+                        reorderBody.appendChild(row);
+                    }
+                });
+
+                syncVisibleOrder();
+            }
+
+            function showStatus(type, message) {
+                statusBox.hidden = false;
+                statusBox.textContent = message;
+                statusBox.className = "callout criteria-order-status";
+
+                if (type === "success") {
+                    statusBox.classList.add("success");
+                } else if (type === "error") {
+                    statusBox.classList.add("is-error");
+                } else {
+                    statusBox.classList.add("is-info");
+                }
+            }
+
+            function getCsrfToken() {
+                const cookieValue = document.cookie
+                    .split("; ")
+                    .find((item) => item.startsWith("csrftoken="));
+
+                return cookieValue ? decodeURIComponent(cookieValue.split("=")[1]) : "";
+            }
+
+            async function persistOrder(fallbackOrder) {
+                const orderedIds = getOrder();
+                showStatus("info", "Saving criteria order...");
+
+                try {
+                    const response = await fetch(reorderUrl, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRFToken": getCsrfToken(),
+                            "X-Requested-With": "XMLHttpRequest",
+                        },
+                        body: JSON.stringify({ ordered_ids: orderedIds }),
+                    });
+
+                    const data = await response.json();
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.error || "Unable to save the new criteria order.");
+                    }
+
+                    showStatus("success", "Criteria order saved. Judges will now see this exact sequence while scoring.");
+                } catch (error) {
+                    renderOrder(fallbackOrder);
+                    showStatus("error", error.message || "Unable to save the new criteria order.");
+                }
+            }
+
+            reorderBody.addEventListener("dragstart", (event) => {
+                const row = event.target.closest("[data-criterion-row]");
+                if (!row) {
+                    return;
+                }
+
+                draggedRow = row;
+                previousOrder = getOrder();
+                row.classList.add("is-dragging");
+
+                if (event.dataTransfer) {
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", row.dataset.criterionId);
+                }
+            });
+
+            reorderBody.addEventListener("dragover", (event) => {
+                if (!draggedRow) {
+                    return;
+                }
+
+                event.preventDefault();
+                const targetRow = event.target.closest("[data-criterion-row]");
+                if (!targetRow || targetRow === draggedRow) {
+                    return;
+                }
+
+                const targetBox = targetRow.getBoundingClientRect();
+                const shouldInsertBefore = event.clientY < targetBox.top + targetBox.height / 2;
+                reorderBody.insertBefore(draggedRow, shouldInsertBefore ? targetRow : targetRow.nextSibling);
+                syncVisibleOrder();
+            });
+
+            reorderBody.addEventListener("dragend", () => {
+                if (!draggedRow) {
+                    return;
+                }
+
+                draggedRow.classList.remove("is-dragging");
+                draggedRow = null;
+
+                const currentOrder = getOrder();
+                if (currentOrder.join(",") !== previousOrder.join(",")) {
+                    persistOrder(previousOrder.slice());
+                } else {
+                    syncVisibleOrder();
+                }
+            });
+
+            reorderBody.addEventListener("click", (event) => {
+                const moveButton = event.target.closest("[data-shift-direction]");
+                if (!moveButton) {
+                    return;
+                }
+
+                const row = moveButton.closest("[data-criterion-row]");
+                if (!row) {
+                    return;
+                }
+
+                const direction = Number(moveButton.dataset.shiftDirection);
+                const fallbackOrder = getOrder();
+
+                if (direction < 0 && row.previousElementSibling) {
+                    reorderBody.insertBefore(row, row.previousElementSibling);
+                } else if (direction > 0 && row.nextElementSibling) {
+                    reorderBody.insertBefore(row.nextElementSibling, row);
+                } else {
+                    return;
+                }
+
+                syncVisibleOrder();
+                persistOrder(fallbackOrder);
+            });
+
+            syncVisibleOrder();
+        }());
+    </script>
 {% endblock %}

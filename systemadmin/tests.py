@@ -1,3 +1,5 @@
+import json
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -69,6 +71,8 @@ class CriteriaManagementTests(AdminAccessTestCase):
     def setUp(self):
         super().setUp()
         self.criteria = Criteria.objects.create(name="Talent", percentage=50)
+        self.criteria_two = Criteria.objects.create(name="Poise", percentage=30)
+        self.criteria_three = Criteria.objects.create(name="Q&A", percentage=20)
 
     def test_admin_can_edit_criteria(self):
         response = self.client.post(
@@ -106,6 +110,32 @@ class CriteriaManagementTests(AdminAccessTestCase):
 
         self.assertEqual(response.status_code, 405)
         self.assertTrue(Criteria.objects.filter(id=self.criteria.id).exists())
+
+    def test_admin_can_reorder_criteria(self):
+        ordered_ids = [self.criteria_three.id, self.criteria.id, self.criteria_two.id]
+
+        response = self.client.post(
+            reverse("systemadmin:reorder_criteria"),
+            data=json.dumps({"ordered_ids": ordered_ids}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {"success": True})
+        self.assertEqual(list(Criteria.objects.values_list("id", flat=True)), ordered_ids)
+
+    def test_reorder_criteria_requires_full_saved_list(self):
+        response = self.client.post(
+            reverse("systemadmin:reorder_criteria"),
+            data=json.dumps({"ordered_ids": [self.criteria.id, self.criteria_two.id]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            list(Criteria.objects.order_by("display_order", "id").values_list("id", flat=True)),
+            [self.criteria.id, self.criteria_two.id, self.criteria_three.id],
+        )
 
 
 class ParticipantManagementTests(AdminAccessTestCase):
@@ -209,3 +239,29 @@ class JudgeAccountManagementTests(AdminAccessTestCase):
 
         self.assertEqual(response.status_code, 405)
         self.assertTrue(Judge.objects.filter(id=judge.id).exists())
+
+
+class JudgeScoringOrderTests(TestCase):
+    def test_judge_sees_criteria_in_saved_display_order(self):
+        first = Criteria.objects.create(name="Production", percentage=20)
+        second = Criteria.objects.create(name="Talent", percentage=30)
+        third = Criteria.objects.create(name="Q&A", percentage=50)
+
+        first.display_order = 3
+        first.save(update_fields=["display_order"])
+        second.display_order = 1
+        second.save(update_fields=["display_order"])
+        third.display_order = 2
+        third.save(update_fields=["display_order"])
+
+        participant = Participant.objects.create(name="Contestant Ordered")
+        judge_user = User.objects.create_user(username="judge_sequence", password="judgepass123")
+        Judge.objects.create(user=judge_user)
+        self.client.force_login(judge_user)
+
+        response = self.client.get(reverse("judge:score_participant", args=[participant.id]))
+
+        self.assertEqual(
+            [criterion.id for criterion in response.context["criteria_list"]],
+            [second.id, third.id, first.id],
+        )

@@ -1,13 +1,25 @@
-from django.db import models
 from django.contrib.auth.models import User
+from django.db import models
+from django.db.models import Max
 
 
 class Criteria(models.Model):
     name = models.CharField(max_length=100)
     percentage = models.FloatField()
+    display_order = models.PositiveIntegerField(default=0, db_index=True)
+
+    class Meta:
+        ordering = ["display_order", "id"]
 
     def __str__(self):
         return f"{self.name} ({self.percentage}%)"
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and not self.display_order:
+            max_order = type(self).objects.aggregate(max_order=Max("display_order"))["max_order"] or 0
+            self.display_order = max_order + 1
+
+        super().save(*args, **kwargs)
 
 
 class Participant(models.Model):
