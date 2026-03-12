@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Segment Winners Print</title>
+    <style>
+        :root {
+            --border: #d7dde6;
+            --text: #17212b;
+            --muted: #667385;
+            --accent: #2563eb;
+            --surface: #ffffff;
+            --surface-muted: #f8fafc;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 1.5rem;
+            font-family: "Trebuchet MS", "Gill Sans", sans-serif;
+            color: var(--text);
+            background: #eef2f7;
+        }
+
+        .print-shell {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            background: var(--surface);
+        }
+
+        .print-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .eyebrow {
+            display: inline-block;
+            margin-bottom: 0.45rem;
+            color: var(--accent);
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        h1,
+        h2 {
+            margin: 0;
+            font-family: "Palatino Linotype", Georgia, serif;
+            line-height: 1.12;
+        }
+
+        h1 {
+            font-size: 2.3rem;
+            margin-bottom: 0.4rem;
+        }
+
+        h2 {
+            font-size: 1.35rem;
+            margin-bottom: 0.75rem;
+        }
+
+        p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.55;
+        }
+
+        .print-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            padding: 0.72rem 1rem;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .button.primary {
+            border-color: var(--accent);
+            background: var(--accent);
+            color: #ffffff;
+        }
+
+        .panel {
+            padding: 1.15rem;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            background: var(--surface);
+        }
+
+        .callout {
+            margin-bottom: 1rem;
+            padding: 0.95rem 1rem;
+            border: 1px solid #fed7aa;
+            border-radius: 16px;
+            background: #fff7ed;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 760px;
+        }
+
+        th,
+        td {
+            padding: 0.82rem 0.7rem;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            background: var(--surface-muted);
+            color: var(--muted);
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .numeric {
+            white-space: nowrap;
+        }
+
+        .muted-mark {
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+                background: #ffffff;
+            }
+
+            .print-shell {
+                max-width: none;
+                margin: 0;
+                padding: 0;
+                border: 0;
+                border-radius: 0;
+            }
+
+            .print-actions {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="print-shell">
+        <header class="print-head">
+            <div>
+                <span class="eyebrow">Print View</span>
+                <h1>Segment Winners</h1>
+                <p>Generated {{ generated_at|date:"M d, Y h:i A" }}</p>
+            </div>
+            <div class="print-actions">
+                <button type="button" class="button primary" onclick="window.print()">Print</button>
+                <a href="{% url 'systemadmin:tabulation_results' %}" class="button">Back to Results</a>
+            </div>
+        </header>
+
+        {% if not has_scores %}
+            <div class="callout">
+                No judge scores have been submitted yet. Segment winners will appear here once each criterion has at least one recorded score.
+            </div>
+        {% endif %}
+
+        <section class="panel">
+            <span class="eyebrow">Minor Awards</span>
+            <h2>Rank 1 participant per segment</h2>
+            <p>This print view is intended for category-based recognitions such as Best in Production and other segment awards.</p>
+
+            <div class="table-wrap" style="margin-top: 1rem;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Criterion</th>
+                            <th>Weight</th>
+                            <th>Rank</th>
+                            <th>Candidate No.</th>
+                            <th>Participant</th>
+                            {% if results_judges %}
+                                {% for judge in results_judges %}
+                                    <th>{{ judge.user.username }}</th>
+                                {% endfor %}
+                            {% else %}
+                                <th>Judge Scores</th>
+                            {% endif %}
+                            <th>Average</th>
+                            <th>Segment Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in segment_winner_rows %}
+                            <tr>
+                                <td>{{ row.criterion.name }}</td>
+                                <td class="numeric">{{ row.criterion.percentage|floatformat:2 }}%</td>
+                                <td class="numeric">{% if row.winner %}1{% else %}<span class="muted-mark">-</span>{% endif %}</td>
+                                <td class="numeric">
+                                    {% if row.candidate_number %}
+                                        {{ row.candidate_number }}
+                                    {% else %}
+                                        <span class="muted-mark">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if row.winner %}
+                                        {{ row.winner.name }}
+                                    {% else %}
+                                        <span class="muted-mark">No scores yet</span>
+                                    {% endif %}
+                                </td>
+                                {% if results_judges %}
+                                    {% for score in row.judge_scores %}
+                                        <td class="numeric">
+                                            {% if score %}
+                                                {{ score }}
+                                            {% else %}
+                                                <span class="muted-mark">-</span>
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                {% else %}
+                                    <td><span class="muted-mark">No judge accounts yet</span></td>
+                                {% endif %}
+                                <td class="numeric">
+                                    {% if row.average_score %}
+                                        {{ row.average_score|floatformat:2 }}
+                                    {% else %}
+                                        <span class="muted-mark">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="numeric">
+                                    {% if row.weighted_score %}
+                                        {{ row.weighted_score|floatformat:2 }}
+                                    {% else %}
+                                        <span class="muted-mark">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="{% if results_judges %}{{ results_judges|length|add:'7' }}{% else %}8{% endif %}">No segment data is available.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</body>
+</html>

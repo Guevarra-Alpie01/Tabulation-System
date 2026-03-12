@@ -27,5 +27,7 @@ urlpatterns = [
     path("criteria/<int:criteria_id>/edit/", views.edit_criteria, name="edit_criteria"),
     path("criteria/<int:criteria_id>/delete/", views.delete_criteria, name="delete_criteria"),
     path("results/", views.tabulation_results, name="tabulation_results"),
+    path("results/print/final/", views.print_final_scoreboard, name="print_final_scoreboard"),
+    path("results/print/segments/", views.print_segment_winners, name="print_segment_winners"),
     path("results-data/", views.results_data, name="results_data"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

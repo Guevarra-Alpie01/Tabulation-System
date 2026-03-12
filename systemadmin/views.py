@@ -48,6 +48,18 @@ def _calculate_results():
     return sorted(results, key=lambda item: item["score"], reverse=True)
 
 
+def _build_ranked_results():
+    ranked_results = []
+
+    for rank, item in enumerate(_calculate_results(), start=1):
+        ranked_item = dict(item)
+        ranked_item["rank"] = rank
+        ranked_item["candidate_number"] = item["participant"].display_order
+        ranked_results.append(ranked_item)
+
+    return ranked_results
+
+
 def _build_criterion_breakdowns():
     criteria = list(Criteria.objects.order_by("display_order", "id"))
     participants = list(Participant.objects.order_by("display_order", "id"))
@@ -72,6 +84,7 @@ def _build_criterion_breakdowns():
             rows.append(
                 {
                     "participant": participant,
+                    "candidate_number": participant.display_order,
                     "judge_scores": judge_scores,
                     "submitted_count": len(captured_scores),
                     "average_score": average_score,
@@ -114,6 +127,72 @@ def _build_criterion_breakdowns():
     return {
         "results_judges": judges,
         "criterion_breakdowns": breakdowns,
+    }
+
+
+def _build_participant_result_details(ranked_results, criterion_breakdowns):
+    rows_by_participant_id = defaultdict(list)
+
+    for breakdown in criterion_breakdowns:
+        criterion = breakdown["criterion"]
+
+        for row in breakdown["rows"]:
+            rows_by_participant_id[row["participant"].id].append(
+                {
+                    "criterion": criterion,
+                    "judge_scores": row["judge_scores"],
+                    "submitted_count": row["submitted_count"],
+                    "average_score": row["average_score"],
+                    "criterion_rank": row["rank"],
+                    "weighted_score": row["weighted_score"],
+                }
+            )
+
+    return [
+        {
+            "participant": result["participant"],
+            "rank": result["rank"],
+            "candidate_number": result["candidate_number"],
+            "final_score": result["score"],
+            "criteria_rows": rows_by_participant_id[result["participant"].id],
+        }
+        for result in ranked_results
+    ]
+
+
+def _build_segment_winner_rows(criterion_breakdowns):
+    winner_rows = []
+
+    for breakdown in criterion_breakdowns:
+        top_row = breakdown["top_row"]
+        winner_rows.append(
+            {
+                "criterion": breakdown["criterion"],
+                "winner": top_row["participant"] if top_row else None,
+                "candidate_number": top_row["candidate_number"] if top_row else None,
+                "judge_scores": top_row["judge_scores"] if top_row else [None] * breakdown["judge_count"],
+                "average_score": top_row["average_score"] if top_row else None,
+                "weighted_score": top_row["weighted_score"] if top_row else None,
+            }
+        )
+
+    return winner_rows
+
+
+def _build_results_module_context():
+    ranked_results = _build_ranked_results()
+    breakdown_context = _build_criterion_breakdowns()
+
+    return {
+        "results": ranked_results,
+        "results_judges": breakdown_context["results_judges"],
+        "criterion_breakdowns": breakdown_context["criterion_breakdowns"],
+        "participant_result_details": _build_participant_result_details(
+            ranked_results,
+            breakdown_context["criterion_breakdowns"],
+        ),
+        "segment_winner_rows": _build_segment_winner_rows(breakdown_context["criterion_breakdowns"]),
+        "generated_at": timezone.localtime(),
     }
 
 
@@ -627,19 +706,42 @@ def tabulation_results(request):
     context = _admin_context()
     context.update(
         {
-            "results": _calculate_results(),
             "has_scores": Score.objects.exists(),
-            **_build_criterion_breakdowns(),
+            **_build_results_module_context(),
         }
     )
     return render(request, "results.html", context)
 
 
 @admin_required
+def print_final_scoreboard(request):
+    context = _admin_context()
+    context.update(
+        {
+            "has_scores": Score.objects.exists(),
+            **_build_results_module_context(),
+        }
+    )
+    return render(request, "results_print_scoreboard.html", context)
+
+
+@admin_required
+def print_segment_winners(request):
+    context = _admin_context()
+    context.update(
+        {
+            "has_scores": Score.objects.exists(),
+            **_build_results_module_context(),
+        }
+    )
+    return render(request, "results_print_segments.html", context)
+
+
+@admin_required
 def results_data(request):
     results = []
 
-    for item in _calculate_results():
+    for item in _build_ranked_results():
         participant = item["participant"]
         results.append(
             {

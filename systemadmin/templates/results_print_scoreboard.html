@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Final Scoreboard Print</title>
+    <style>
+        :root {
+            --border: #d7dde6;
+            --text: #17212b;
+            --muted: #667385;
+            --accent: #2563eb;
+            --surface: #ffffff;
+            --surface-muted: #f8fafc;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 1.5rem;
+            font-family: "Trebuchet MS", "Gill Sans", sans-serif;
+            color: var(--text);
+            background: #eef2f7;
+        }
+
+        .print-shell {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            background: var(--surface);
+        }
+
+        .print-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .eyebrow {
+            display: inline-block;
+            margin-bottom: 0.45rem;
+            color: var(--accent);
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        h1,
+        h2,
+        h3 {
+            margin: 0;
+            font-family: "Palatino Linotype", Georgia, serif;
+            line-height: 1.12;
+        }
+
+        h1 {
+            font-size: 2.3rem;
+            margin-bottom: 0.4rem;
+        }
+
+        h2 {
+            font-size: 1.35rem;
+            margin-bottom: 0.75rem;
+        }
+
+        p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.55;
+        }
+
+        .print-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            padding: 0.72rem 1rem;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .button.primary {
+            border-color: var(--accent);
+            background: var(--accent);
+            color: #ffffff;
+        }
+
+        .panel {
+            margin-bottom: 1.25rem;
+            padding: 1.15rem;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            background: var(--surface);
+        }
+
+        .callout {
+            margin-bottom: 1rem;
+            padding: 0.95rem 1rem;
+            border: 1px solid #fed7aa;
+            border-radius: 16px;
+            background: #fff7ed;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 720px;
+        }
+
+        th,
+        td {
+            padding: 0.82rem 0.7rem;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            background: var(--surface-muted);
+            color: var(--muted);
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        tfoot td {
+            font-weight: 700;
+            background: #f8fbff;
+        }
+
+        .numeric {
+            white-space: nowrap;
+        }
+
+        .participant-block {
+            margin-top: 1.25rem;
+        }
+
+        .participant-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.38rem 0.78rem;
+            border-radius: 999px;
+            border: 1px solid #bfdbfe;
+            background: #eff6ff;
+            color: var(--accent);
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .muted-mark {
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+                background: #ffffff;
+            }
+
+            .print-shell {
+                max-width: none;
+                margin: 0;
+                padding: 0;
+                border: 0;
+                border-radius: 0;
+            }
+
+            .print-actions {
+                display: none;
+            }
+
+            .panel {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="print-shell">
+        <header class="print-head">
+            <div>
+                <span class="eyebrow">Print View</span>
+                <h1>Final Scoreboard</h1>
+                <p>Generated {{ generated_at|date:"M d, Y h:i A" }}</p>
+            </div>
+            <div class="print-actions">
+                <button type="button" class="button primary" onclick="window.print()">Print</button>
+                <a href="{% url 'systemadmin:tabulation_results' %}" class="button">Back to Results</a>
+            </div>
+        </header>
+
+        {% if not has_scores %}
+            <div class="callout">
+                No judge scores have been submitted yet. The printed ranking below reflects the current baseline standings.
+            </div>
+        {% endif %}
+
+        <section class="panel">
+            <span class="eyebrow">Overall Ranking</span>
+            <h2>Final scoreboard table</h2>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Candidate No.</th>
+                            <th>Participant</th>
+                            <th>Criteria Averaged</th>
+                            <th>Final Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in results %}
+                            <tr>
+                                <td class="numeric">{{ item.rank }}</td>
+                                <td class="numeric">{{ item.candidate_number }}</td>
+                                <td>{{ item.participant.name }}</td>
+                                <td class="numeric">{{ item.criteria_scored }}</td>
+                                <td class="numeric">{{ item.score|floatformat:2 }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="5">No participants available.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel">
+            <span class="eyebrow">Detailed Breakdown</span>
+            <h2>Weighted participant details</h2>
+            <p>Each participant section lists the judge scores per criterion, the computed average, the criterion weight, and the weighted segment total used in the final ranking.</p>
+
+            {% for detail in participant_result_details %}
+                <div class="participant-block">
+                    <div class="participant-meta">
+                        <span class="pill">Rank {{ detail.rank }}</span>
+                        <span class="pill">Candidate {{ detail.candidate_number }}</span>
+                        <h3>{{ detail.participant.name }}</h3>
+                    </div>
+
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Criterion</th>
+                                    {% if results_judges %}
+                                        {% for judge in results_judges %}
+                                            <th>{{ judge.user.username }}</th>
+                                        {% endfor %}
+                                    {% else %}
+                                        <th>Judge Scores</th>
+                                    {% endif %}
+                                    <th>Average</th>
+                                    <th>Weight</th>
+                                    <th>Segment Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in detail.criteria_rows %}
+                                    <tr>
+                                        <td>{{ row.criterion.name }}</td>
+                                        {% if results_judges %}
+                                            {% for score in row.judge_scores %}
+                                                <td class="numeric">
+                                                    {% if score %}
+                                                        {{ score }}
+                                                    {% else %}
+                                                        <span class="muted-mark">-</span>
+                                                    {% endif %}
+                                                </td>
+                                            {% endfor %}
+                                        {% else %}
+                                            <td><span class="muted-mark">No judge accounts yet</span></td>
+                                        {% endif %}
+                                        <td class="numeric">
+                                            {% if row.average_score %}
+                                                {{ row.average_score|floatformat:2 }}
+                                            {% else %}
+                                                <span class="muted-mark">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="numeric">{{ row.criterion.percentage|floatformat:2 }}%</td>
+                                        <td class="numeric">
+                                            {% if row.weighted_score %}
+                                                {{ row.weighted_score|floatformat:2 }}
+                                            {% else %}
+                                                <span class="muted-mark">-</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="{% if results_judges %}{{ results_judges|length|add:'3' }}{% else %}4{% endif %}">Final weighted score</td>
+                                    <td class="numeric">{{ detail.final_score|floatformat:2 }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            {% empty %}
+                <p>No participant detail is available yet.</p>
+            {% endfor %}
+        </section>
+    </div>
+</body>
+</html>

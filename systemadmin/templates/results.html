@@ -108,7 +108,10 @@
                         <span class="section-label">Ranking</span>
                         <h2>Final scoreboard</h2>
                     </div>
-                    <span class="pill accent">Weighted results</span>
+                    <div class="button-row">
+                        <a href="{% url 'systemadmin:print_final_scoreboard' %}" class="button secondary" target="_blank" rel="noopener">Print Final</a>
+                        <span class="pill accent">Weighted results</span>
+                    </div>
                 </div>
 
                 <div class="table-wrap">
@@ -170,7 +173,10 @@
                         weighted segment score, and current rank for minor-award decisions.
                     </p>
                 </div>
-                <span class="pill accent">{{ criterion_breakdowns|length }} criteria</span>
+                <div class="button-row">
+                    <a href="{% url 'systemadmin:print_segment_winners' %}" class="button secondary" target="_blank" rel="noopener">Print Segments</a>
+                    <span class="pill accent">{{ criterion_breakdowns|length }} criteria</span>
+                </div>
             </div>
 
             {% if criterion_breakdowns %}

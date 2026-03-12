@@ -87,7 +87,7 @@
         .live-score-sheet-head,
         .live-score-row {
             display: grid;
-            grid-template-columns: minmax(0, 1.65fr) minmax(160px, 190px) minmax(170px, 210px);
+            grid-template-columns: minmax(0, 1.65fr) minmax(120px, 150px) minmax(160px, 200px);
             align-items: center;
             gap: 0.9rem;
             padding: 0.95rem 1rem;
@@ -106,12 +106,17 @@
 
         .live-score-sheet-head span:nth-child(2),
         .live-score-sheet-head span:last-child,
-        .live-score-row > div:nth-child(2),
+        .live-score-row .live-score-segment,
         .live-score-row .live-score-field,
         .live-score-row .live-score-value-wrap {
             justify-self: center;
             width: 100%;
             max-width: 190px;
+            text-align: center;
+        }
+
+        .live-score-candidate {
+            min-width: 0;
         }
 
         .live-candidate-top {
@@ -164,6 +169,11 @@
         .live-score-field {
             display: grid;
             gap: 0.45rem;
+        }
+
+        .live-score-segment {
+            display: flex;
+            justify-content: center;
         }
 
         .live-score-field label {
@@ -240,25 +250,64 @@
             color: var(--success);
         }
 
-        @media (max-width: 820px) {
+        @media (max-width: 1024px) {
+            .live-focus-title {
+                font-size: clamp(2rem, 6vw, 2.8rem);
+            }
+
+            .live-score-sheet-head,
+            .live-score-row {
+                grid-template-columns: minmax(0, 1fr) minmax(112px, 136px) minmax(150px, 176px);
+            }
+        }
+
+        @media (max-width: 860px) {
             .live-focus-head,
             .live-submit-bar {
                 flex-direction: column;
-                align-items: flex-start;
+                align-items: stretch;
             }
 
             .live-score-sheet-head {
                 display: none;
             }
 
+            .live-focus-badges {
+                justify-content: flex-start;
+            }
+
             .live-score-row {
-                grid-template-columns: 1fr;
+                grid-template-columns: minmax(0, 1fr) minmax(150px, 180px);
+                grid-template-areas:
+                    "candidate candidate"
+                    "segment score";
+                align-items: end;
+            }
+
+            .live-score-candidate {
+                grid-area: candidate;
+            }
+
+            .live-score-segment {
+                grid-area: segment;
+                justify-self: start;
+                max-width: none;
+                text-align: left;
             }
 
             .live-score-row .live-score-field,
             .live-score-row .live-score-value-wrap {
+                grid-area: score;
                 justify-self: stretch;
                 max-width: none;
+            }
+
+            .live-score-value-wrap {
+                justify-content: stretch;
+            }
+
+            .live-score-value {
+                width: 100%;
             }
         }
 
@@ -269,14 +318,65 @@
                 border-radius: 22px;
             }
 
-            .live-candidate-photo {
-                width: 84px;
-                height: 84px;
-                border-radius: 20px;
+            .live-focus-head {
+                text-align: center;
+            }
+
+            .live-focus-badges {
+                justify-content: center;
             }
 
             .live-score-row {
+                grid-template-columns: 1fr;
+                grid-template-areas:
+                    "candidate"
+                    "segment"
+                    "score";
                 padding: 0.9rem;
+            }
+
+            .live-score-segment {
+                justify-self: start;
+            }
+
+            .live-submit-bar {
+                align-items: stretch;
+            }
+
+            .live-submit-bar .button {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .live-focus-title {
+                font-size: clamp(1.85rem, 10vw, 2.35rem);
+            }
+
+            .live-score-head {
+                margin-bottom: 1.15rem;
+            }
+
+            .live-candidate-photo {
+                width: 88px;
+                height: 88px;
+                border-radius: 20px;
+            }
+
+            .live-candidate-top {
+                display: grid;
+                grid-template-columns: 88px minmax(0, 1fr);
+                align-items: center;
+                gap: 0.8rem;
+            }
+
+            .live-candidate-name {
+                font-size: 1.1rem;
+            }
+
+            .criterion-highlight {
+                padding: 0.72rem 1.1rem;
+                font-size: 0.98rem;
             }
         }
     </style>
@@ -336,7 +436,7 @@
                             </div>
                             {% for row in live_score_rows %}
                                 <article class="live-score-row">
-                                    <div class="live-candidate-top">
+                                    <div class="live-candidate-top live-score-candidate">
                                         {% if row.participant.photo %}
                                             <img class="live-candidate-photo" src="{{ row.participant.photo.url }}" alt="{{ row.participant.name }}">
                                         {% else %}
@@ -348,7 +448,7 @@
                                             <p class="live-candidate-copy">Score recorded for this live segment.</p>
                                         </div>
                                     </div>
-                                    <div>
+                                    <div class="live-score-segment">
                                         <span class="pill">{{ active_live_session.criterion.name }}</span>
                                     </div>
                                     <div class="live-score-value-wrap">
@@ -386,7 +486,7 @@
                                 </div>
                                 {% for row in live_score_rows %}
                                     <article class="live-score-row">
-                                        <div class="live-candidate-top">
+                                        <div class="live-candidate-top live-score-candidate">
                                             {% if row.participant.photo %}
                                                 <img class="live-candidate-photo" src="{{ row.participant.photo.url }}" alt="{{ row.participant.name }}">
                                             {% else %}
@@ -398,7 +498,7 @@
                                                 <p class="live-candidate-copy">Enter this candidate's score for {{ active_live_session.criterion.name }}.</p>
                                             </div>
                                         </div>
-                                        <div>
+                                        <div class="live-score-segment">
                                             <span class="pill">{{ active_live_session.criterion.name }}</span>
                                         </div>
 
@@ -411,6 +511,7 @@
                                                    min="1"
                                                    max="100"
                                                    step="1"
+                                                   inputmode="numeric"
                                                    required
                                                    placeholder="1 to 100"
                                                    value="{{ row.score_value }}">

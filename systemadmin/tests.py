@@ -687,3 +687,68 @@ class WeightedResultsCalculationTests(AdminAccessTestCase):
         self.assertContains(response, "Criterion score tables")
         self.assertContains(response, "Weight 20.00%")
         self.assertContains(response, "judge_segment_1")
+
+    def test_final_scoreboard_print_view_includes_rank_candidate_number_and_detail_tables(self):
+        talent = Criteria.objects.create(name="Talent", percentage=40)
+        poise = Criteria.objects.create(name="Poise", percentage=60)
+        contestant_a = Participant.objects.create(name="Contestant A")
+        contestant_b = Participant.objects.create(name="Contestant B")
+        judge_one = Judge.objects.create(user=User.objects.create_user(username="judge_print_1", password="pass12345"))
+        judge_two = Judge.objects.create(user=User.objects.create_user(username="judge_print_2", password="pass12345"))
+
+        Score.objects.create(judge=judge_one, participant=contestant_a, criteria=talent, score_value=80)
+        Score.objects.create(judge=judge_two, participant=contestant_a, criteria=talent, score_value=100)
+        Score.objects.create(judge=judge_one, participant=contestant_a, criteria=poise, score_value=70)
+        Score.objects.create(judge=judge_two, participant=contestant_a, criteria=poise, score_value=90)
+
+        Score.objects.create(judge=judge_one, participant=contestant_b, criteria=talent, score_value=90)
+        Score.objects.create(judge=judge_two, participant=contestant_b, criteria=talent, score_value=80)
+        Score.objects.create(judge=judge_one, participant=contestant_b, criteria=poise, score_value=60)
+        Score.objects.create(judge=judge_two, participant=contestant_b, criteria=poise, score_value=70)
+
+        response = self.client.get(reverse("systemadmin:print_final_scoreboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["results"][0]["rank"], 1)
+        self.assertEqual(response.context["results"][0]["candidate_number"], 1)
+        self.assertEqual(response.context["results"][0]["score"], 84.0)
+
+        participant_details = response.context["participant_result_details"]
+        self.assertEqual(participant_details[0]["participant"], contestant_a)
+        self.assertEqual(participant_details[0]["final_score"], 84.0)
+        self.assertEqual(participant_details[0]["criteria_rows"][0]["criterion"], talent)
+        self.assertEqual(participant_details[0]["criteria_rows"][0]["judge_scores"], [80, 100])
+        self.assertContains(response, "Final scoreboard table")
+        self.assertContains(response, "Candidate No.")
+
+    def test_segment_winners_print_view_lists_rank_one_per_criterion(self):
+        production = Criteria.objects.create(name="Production", percentage=20)
+        talent = Criteria.objects.create(name="Talent", percentage=80)
+        contestant_a = Participant.objects.create(name="Contestant A")
+        contestant_b = Participant.objects.create(name="Contestant B")
+        judge_one = Judge.objects.create(user=User.objects.create_user(username="judge_minor_1", password="pass12345"))
+        judge_two = Judge.objects.create(user=User.objects.create_user(username="judge_minor_2", password="pass12345"))
+
+        Score.objects.create(judge=judge_one, participant=contestant_a, criteria=production, score_value=90)
+        Score.objects.create(judge=judge_two, participant=contestant_a, criteria=production, score_value=95)
+        Score.objects.create(judge=judge_one, participant=contestant_b, criteria=production, score_value=80)
+        Score.objects.create(judge=judge_two, participant=contestant_b, criteria=production, score_value=85)
+
+        Score.objects.create(judge=judge_one, participant=contestant_a, criteria=talent, score_value=88)
+        Score.objects.create(judge=judge_two, participant=contestant_a, criteria=talent, score_value=90)
+        Score.objects.create(judge=judge_one, participant=contestant_b, criteria=talent, score_value=94)
+        Score.objects.create(judge=judge_two, participant=contestant_b, criteria=talent, score_value=92)
+
+        response = self.client.get(reverse("systemadmin:print_segment_winners"))
+
+        self.assertEqual(response.status_code, 200)
+        winner_rows = response.context["segment_winner_rows"]
+        self.assertEqual(winner_rows[0]["criterion"], production)
+        self.assertEqual(winner_rows[0]["winner"], contestant_a)
+        self.assertEqual(winner_rows[0]["judge_scores"], [90, 95])
+        self.assertEqual(winner_rows[1]["criterion"], talent)
+        self.assertEqual(winner_rows[1]["winner"], contestant_b)
+        self.assertEqual(winner_rows[1]["judge_scores"], [94, 92])
+        self.assertContains(response, "Rank 1 participant per segment")
+        self.assertContains(response, "Contestant A")
+        self.assertContains(response, "Contestant B")
