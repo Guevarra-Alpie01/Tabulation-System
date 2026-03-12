@@ -1,0 +1,70 @@
+{% extends "systemadmin/base.html" %}
+
+{% block title %}Judges{% endblock %}
+{% block page_title %}Judge Accounts{% endblock %}
+{% block page_intro %}Create and manage multiple judge logins so each judge can access the scoring dashboard with separate credentials.{% endblock %}
+
+{% block page_actions %}
+    <a href="{% url 'systemadmin:add_judge' %}" class="button">Add Judge</a>
+    <a href="{% url 'systemadmin:admin_dashboard' %}" class="button secondary">Dashboard</a>
+{% endblock %}
+
+{% block content %}
+    <section class="panel">
+        <div class="panel-head">
+            <div>
+                <span class="section-label">Accounts</span>
+                <h2>Judge list</h2>
+            </div>
+            <span class="pill accent">{{ admin_summary.judge_count }} total</span>
+        </div>
+
+        {% if judges %}
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Linked Scores</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for judge in judges %}
+                            <tr>
+                                <td><div class="rank-chip">{{ judge.id }}</div></td>
+                                <td>
+                                    <strong>{{ judge.user.username }}</strong>
+                                </td>
+                                <td>
+                                    <span class="pill">{{ judge.score_count }}</span>
+                                </td>
+                                <td>
+                                    <div class="table-actions">
+                                        <a href="{% url 'systemadmin:edit_judge' judge.id %}" class="button secondary button-small">Edit</a>
+                                        <form method="post"
+                                              action="{% url 'systemadmin:delete_judge' judge.id %}"
+                                              class="inline-form"
+                                              onsubmit="return confirm('Delete judge account {{ judge.user.username|escapejs }}?{% if judge.score_count %} This will also remove {{ judge.score_count }} linked score record{{ judge.score_count|pluralize }}.{% endif %}');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="button danger button-small">Delete</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No judge accounts yet</h3>
+                <p>Create judge accounts so multiple judges can log in and submit scores.</p>
+                <div class="button-row" style="justify-content:center; margin-top:1rem;">
+                    <a href="{% url 'systemadmin:add_judge' %}" class="button">Create the first judge</a>
+                </div>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

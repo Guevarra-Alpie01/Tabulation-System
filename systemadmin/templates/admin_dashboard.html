@@ -5,8 +5,8 @@
 {% block page_intro %}A clean local dashboard for managing criteria, participants, and results without any internet dependency or external assets.{% endblock %}
 
 {% block page_actions %}
-    <a href="{% url 'systemadmin:add_participant' %}" class="button">Add Participant</a>
-    <a href="{% url 'systemadmin:add_criteria' %}" class="button secondary">Add Criteria</a>
+    <a href="{% url 'systemadmin:add_judge' %}" class="button">Add Judge</a>
+    <a href="{% url 'systemadmin:add_participant' %}" class="button secondary">Add Participant</a>
 {% endblock %}
 
 {% block content %}
@@ -19,6 +19,7 @@
                     This interface uses only local template, CSS, and JavaScript resources, making it stable for local Django deployment on desktop, tablet, and mobile screens.
                 </p>
                 <div class="hero-actions" style="margin-top: 1rem;">
+                    <a href="{% url 'systemadmin:judge_list' %}" class="button">Manage Judges</a>
                     <a href="{% url 'systemadmin:participant_list' %}" class="button">Manage Participants</a>
                     <a href="{% url 'systemadmin:criteria_list' %}" class="button secondary">Manage Criteria</a>
                     <a href="{% url 'systemadmin:tabulation_results' %}" class="button ghost">Open Results</a>
@@ -42,6 +43,13 @@
                 </div>
                 <div class="hero-status-item">
                     <div class="check-index">03</div>
+                    <div>
+                        <strong>Judge accounts</strong>
+                        <p>{{ admin_summary.judge_count }} judge account{{ admin_summary.judge_count|pluralize }} can currently sign in to score.</p>
+                    </div>
+                </div>
+                <div class="hero-status-item">
+                    <div class="check-index">04</div>
                     <div>
                         <strong>Score activity</strong>
                         <p>{{ admin_summary.score_count }} score entr{{ admin_summary.score_count|pluralize:"y,ies" }} have been recorded so far.</p>
@@ -77,6 +85,16 @@
     <section class="action-grid">
         <article class="action-card">
             <span class="section-label">Step 1</span>
+            <h3>Create judge accounts</h3>
+            <p>Add one or more judges with their own usernames and passwords before opening the scoring process.</p>
+            <div class="button-row" style="justify-content:flex-start;">
+                <a href="{% url 'systemadmin:add_judge' %}" class="button">Add Judge</a>
+                <a href="{% url 'systemadmin:judge_list' %}" class="button secondary">View Judges</a>
+            </div>
+        </article>
+
+        <article class="action-card">
+            <span class="section-label">Step 2</span>
             <h3>Add and review participants</h3>
             <p>Create the participant roster and confirm each profile is ready for judge review on smaller and larger screens.</p>
             <div class="button-row" style="justify-content:flex-start;">
@@ -86,7 +104,7 @@
         </article>
 
         <article class="action-card">
-            <span class="section-label">Step 2</span>
+            <span class="section-label">Step 3</span>
             <h3>Set the criteria weights</h3>
             <p>Keep the scoring framework clear and make sure the full criteria total stays at 100% for accurate results.</p>
             <div class="button-row" style="justify-content:flex-start;">
@@ -96,7 +114,7 @@
         </article>
 
         <article class="action-card">
-            <span class="section-label">Step 3</span>
+            <span class="section-label">Step 4</span>
             <h3>Track current standings</h3>
             <p>Open the results page to monitor rankings and verify the latest scores from the local tabulation feed.</p>
             <div class="button-row" style="justify-content:flex-start;">

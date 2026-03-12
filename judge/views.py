@@ -1,43 +1,49 @@
-from django.http import HttpResponse
-from django.shortcuts import render,redirect,get_object_or_404
+from django.shortcuts import get_object_or_404, redirect, render
 
-from django.contrib.auth.decorators import login_required
+from systemadmin.auth_utils import judge_required
+from systemadmin.models import Criteria, Judge, Participant, Score
 
-from systemadmin.models import Participant, Criteria, Score, Judge
 
+@judge_required
 def judge_dashboard(request):
-
     participants = Participant.objects.all()
+    judge = Judge.objects.get(user=request.user)
 
-    return render(request, "dashboard.html", {
-        "participants": participants
-    })
+    return render(
+        request,
+        "dashboard.html",
+        {
+            "participants": participants,
+            "judge": judge,
+        },
+    )
 
-@login_required
+
+@judge_required
 def score_participant(request, participant_id):
-
     participant = get_object_or_404(Participant, id=participant_id)
-
     criteria_list = Criteria.objects.all()
-
     judge = Judge.objects.get(user=request.user)
 
     if request.method == "POST":
-
-        for c in criteria_list:
-
-            score_value = request.POST.get(f"criteria_{c.id}")
+        for criteria in criteria_list:
+            score_value = request.POST.get(f"criteria_{criteria.id}")
 
             Score.objects.update_or_create(
                 judge=judge,
                 participant=participant,
-                criteria=c,
-                defaults={"score_value": score_value}
+                criteria=criteria,
+                defaults={"score_value": score_value},
             )
 
-        return redirect("judge_dashboard")
+        return redirect("judge:judge_dashboard")
 
-    return render(request, "score_participant.html", {
-        "participant": participant,
-        "criteria_list": criteria_list
-    })
+    return render(
+        request,
+        "score_participant.html",
+        {
+            "participant": participant,
+            "criteria_list": criteria_list,
+            "judge": judge,
+        },
+    )

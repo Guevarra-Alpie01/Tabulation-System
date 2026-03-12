@@ -231,6 +231,22 @@
             background: var(--surface-muted);
         }
 
+        .sidebar-stack {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .sidebar-user {
+            margin: 0 0 0.25rem;
+            font-weight: 700;
+        }
+
+        .sidebar-role {
+            margin: 0 0 0.9rem;
+            color: var(--muted);
+            line-height: 1.45;
+        }
+
         .section-label,
         .eyebrow {
             display: inline-block;
@@ -441,12 +457,12 @@
         }
 
         .metric-grid {
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             margin-bottom: 1rem;
         }
 
         .action-grid {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             margin-bottom: 1rem;
         }
 
@@ -675,6 +691,10 @@
             margin: 0;
         }
 
+        .sidebar-action {
+            width: 100%;
+        }
+
         .table-wrap {
             overflow-x: auto;
         }
@@ -765,10 +785,6 @@
         }
 
         @media (max-width: 1180px) {
-            .metric-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-
             .action-grid,
             .leader-grid,
             .dashboard-hero-grid,
@@ -893,7 +909,8 @@
             }
 
             .field-grid,
-            .metric-grid {
+            .metric-grid,
+            .action-grid {
                 grid-template-columns: 1fr;
             }
 
@@ -947,11 +964,15 @@
                     <span class="nav-icon">DB</span>
                     <span>Dashboard</span>
                 </a>
-                <a class="nav-link {% if request.resolver_match.url_name == 'add_participant' or request.resolver_match.url_name == 'participant_list' %}is-active{% endif %}" href="{% url 'systemadmin:participant_list' %}">
+                <a class="nav-link {% if request.resolver_match.url_name == 'add_participant' or request.resolver_match.url_name == 'participant_list' or request.resolver_match.url_name == 'edit_participant' %}is-active{% endif %}" href="{% url 'systemadmin:participant_list' %}">
                     <span class="nav-icon">PT</span>
                     <span>Participants</span>
                 </a>
-                <a class="nav-link {% if request.resolver_match.url_name == 'add_criteria' or request.resolver_match.url_name == 'criteria_list' %}is-active{% endif %}" href="{% url 'systemadmin:criteria_list' %}">
+                <a class="nav-link {% if request.resolver_match.url_name == 'judge_list' or request.resolver_match.url_name == 'add_judge' or request.resolver_match.url_name == 'edit_judge' %}is-active{% endif %}" href="{% url 'systemadmin:judge_list' %}">
+                    <span class="nav-icon">JG</span>
+                    <span>Judges</span>
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'add_criteria' or request.resolver_match.url_name == 'criteria_list' or request.resolver_match.url_name == 'edit_criteria' %}is-active{% endif %}" href="{% url 'systemadmin:criteria_list' %}">
                     <span class="nav-icon">CR</span>
                     <span>Criteria</span>
                 </a>
@@ -961,38 +982,50 @@
                 </a>
             </nav>
 
-            <section class="sidebar-card">
-                <span class="section-label">Overview</span>
-                <div class="mini-stat-grid">
-                    <div class="mini-stat">
-                        <span>Participants</span>
-                        <strong>{{ admin_summary.participant_count }}</strong>
+            <div class="sidebar-stack">
+                <section class="sidebar-card">
+                    <span class="section-label">Overview</span>
+                    <div class="mini-stat-grid">
+                        <div class="mini-stat">
+                            <span>Participants</span>
+                            <strong>{{ admin_summary.participant_count }}</strong>
+                        </div>
+                        <div class="mini-stat">
+                            <span>Criteria</span>
+                            <strong>{{ admin_summary.criteria_count }}</strong>
+                        </div>
+                        <div class="mini-stat">
+                            <span>Judges</span>
+                            <strong>{{ admin_summary.judge_count }}</strong>
+                        </div>
+                        <div class="mini-stat">
+                            <span>Scores</span>
+                            <strong>{{ admin_summary.score_count }}</strong>
+                        </div>
                     </div>
-                    <div class="mini-stat">
-                        <span>Criteria</span>
-                        <strong>{{ admin_summary.criteria_count }}</strong>
-                    </div>
-                    <div class="mini-stat">
-                        <span>Judges</span>
-                        <strong>{{ admin_summary.judge_count }}</strong>
-                    </div>
-                    <div class="mini-stat">
-                        <span>Scores</span>
-                        <strong>{{ admin_summary.score_count }}</strong>
-                    </div>
-                </div>
 
-                <div class="readiness-card {% if not admin_summary.criteria_ready %}warning{% endif %}">
-                    <strong>Criteria Weight: {{ admin_summary.criteria_total|floatformat:2 }}%</strong>
-                    <p>
-                        {% if admin_summary.criteria_ready %}
-                            The scoring rules are balanced and ready for use.
-                        {% else %}
-                            Keep the total at 100% so weighted results stay accurate.
-                        {% endif %}
-                    </p>
-                </div>
-            </section>
+                    <div class="readiness-card {% if not admin_summary.criteria_ready %}warning{% endif %}">
+                        <strong>Criteria Weight: {{ admin_summary.criteria_total|floatformat:2 }}%</strong>
+                        <p>
+                            {% if admin_summary.criteria_ready %}
+                                The scoring rules are balanced and ready for use.
+                            {% else %}
+                                Keep the total at 100% so weighted results stay accurate.
+                            {% endif %}
+                        </p>
+                    </div>
+                </section>
+
+                <section class="sidebar-card">
+                    <span class="section-label">Session</span>
+                    <p class="sidebar-user">{{ request.user.username }}</p>
+                    <p class="sidebar-role">Admin / Tabulator access is active for this session.</p>
+                    <form method="post" action="{% url 'logout' %}" class="inline-form">
+                        {% csrf_token %}
+                        <button type="submit" class="button secondary sidebar-action">Log Out</button>
+                    </form>
+                </section>
+            </div>
         </aside>
 
         <main class="main-panel">

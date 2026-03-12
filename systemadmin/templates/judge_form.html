@@ -1,0 +1,108 @@
+{% extends "systemadmin/base.html" %}
+
+{% block title %}{% if is_edit_mode %}Edit Judge{% else %}Add Judge{% endif %}{% endblock %}
+{% block page_title %}{% if is_edit_mode %}Edit Judge{% else %}Add Judge{% endif %}{% endblock %}
+{% block page_intro %}
+    {% if is_edit_mode %}
+        Update the judge account username or password. Changes are saved directly to the login account used by that judge.
+    {% else %}
+        Create a judge login account so additional judges can sign in and score participants independently.
+    {% endif %}
+{% endblock %}
+
+{% block page_actions %}
+    <a href="{% url 'systemadmin:judge_list' %}" class="button secondary">Judge List</a>
+    <a href="{% url 'systemadmin:admin_dashboard' %}" class="button ghost">Dashboard</a>
+{% endblock %}
+
+{% block content %}
+    <section class="split-layout">
+        <article class="panel">
+            <div class="panel-head">
+                <div>
+                    <span class="section-label">Judge Accounts</span>
+                    <h2>{% if is_edit_mode %}Update judge login{% else %}Judge login details{% endif %}</h2>
+                </div>
+                <span class="pill accent">{% if is_edit_mode %}Edit{% else %}New Judge{% endif %}</span>
+            </div>
+
+            {% if is_edit_mode and linked_score_count %}
+                <div class="callout warning">
+                    This judge already has {{ linked_score_count }} score entr{{ linked_score_count|pluralize:"y,ies" }} recorded. Changing the account updates the login without removing those scores.
+                </div>
+            {% endif %}
+
+            <form method="post" class="form-layout">
+                {% csrf_token %}
+                {{ form.non_field_errors }}
+
+                <div class="field-grid">
+                    <div class="field">
+                        <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+                        {{ form.username }}
+                        <p class="field-help">This username will be used when the judge signs into the system.</p>
+                        {{ form.username.errors }}
+                    </div>
+
+                    <div class="field">
+                        <label for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+                        {{ form.password }}
+                        <p class="field-help">
+                            {% if is_edit_mode %}
+                                Leave blank to keep the current password.
+                            {% else %}
+                                Set the initial password for this judge account.
+                            {% endif %}
+                        </p>
+                        {{ form.password.errors }}
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="{{ form.confirm_password.id_for_label }}">{{ form.confirm_password.label }}</label>
+                    {{ form.confirm_password }}
+                    <p class="field-help">Repeat the password to confirm the login credentials.</p>
+                    {{ form.confirm_password.errors }}
+                </div>
+
+                <div class="form-footer">
+                    <button type="submit" class="button">{% if is_edit_mode %}Save Changes{% else %}Create Judge{% endif %}</button>
+                    <a href="{% url 'systemadmin:judge_list' %}" class="button secondary">Cancel</a>
+                </div>
+            </form>
+        </article>
+
+        <aside class="panel">
+            <div class="panel-head">
+                <div>
+                    <span class="section-label">Account Notes</span>
+                    <h2>Judge management guidance</h2>
+                </div>
+            </div>
+
+            <div class="tips-list">
+                <div class="tip-item">
+                    <div class="check-index">1</div>
+                    <div>
+                        <strong>Create one login per judge</strong>
+                        <p class="panel-copy">Each judge account keeps scoring activity separate and traceable.</p>
+                    </div>
+                </div>
+                <div class="tip-item">
+                    <div class="check-index">2</div>
+                    <div>
+                        <strong>Use distinct usernames</strong>
+                        <p class="panel-copy">The system blocks duplicates so each judge signs in with a unique account.</p>
+                    </div>
+                </div>
+                <div class="tip-item">
+                    <div class="check-index">3</div>
+                    <div>
+                        <strong>Manage multiple judges</strong>
+                        <p class="panel-copy">{{ admin_summary.judge_count }} judge account{{ admin_summary.judge_count|pluralize }} currently exist in the system.</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </section>
+{% endblock %}

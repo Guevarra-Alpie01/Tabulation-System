@@ -6,7 +6,8 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from .forms import CriteriaForm, ParticipantForm
+from .auth_utils import admin_required
+from .forms import CriteriaForm, JudgeAccountForm, ParticipantForm
 from .models import Criteria, Judge, Participant, Score
 
 
@@ -58,6 +59,7 @@ def _admin_context():
     }
 
 
+@admin_required
 def admin_dashboard(request):
     results = _calculate_results()
     context = _admin_context()
@@ -70,6 +72,7 @@ def admin_dashboard(request):
     return render(request, "admin_dashboard.html", context)
 
 
+@admin_required
 def add_participant(request):
     form = ParticipantForm(request.POST or None, request.FILES or None)
 
@@ -84,12 +87,14 @@ def add_participant(request):
     return render(request, "add_participant.html", context)
 
 
+@admin_required
 def participant_list(request):
     context = _admin_context()
     context["participants"] = Participant.objects.annotate(score_count=Count("score")).order_by("id")
     return render(request, "participant_list.html", context)
 
 
+@admin_required
 def edit_participant(request, participant_id):
     participant = get_object_or_404(Participant, pk=participant_id)
     form = ParticipantForm(request.POST or None, request.FILES or None, instance=participant)
@@ -112,6 +117,7 @@ def edit_participant(request, participant_id):
 
 
 @require_POST
+@admin_required
 def delete_participant(request, participant_id):
     participant = get_object_or_404(Participant, pk=participant_id)
     linked_score_count = Score.objects.filter(participant=participant).count()
@@ -129,6 +135,74 @@ def delete_participant(request, participant_id):
     return redirect("systemadmin:participant_list")
 
 
+@admin_required
+def judge_list(request):
+    context = _admin_context()
+    context["judges"] = Judge.objects.select_related("user").annotate(score_count=Count("score")).order_by("id")
+    return render(request, "judge_list.html", context)
+
+
+@admin_required
+def add_judge(request):
+    form = JudgeAccountForm(request.POST or None)
+
+    if form.is_valid():
+        judge = form.save()
+        messages.success(request, f"Judge account {judge.user.username} was created successfully.")
+        return redirect("systemadmin:judge_list")
+
+    context = _admin_context()
+    context.update(
+        {
+            "form": form,
+            "is_edit_mode": False,
+        }
+    )
+    return render(request, "judge_form.html", context)
+
+
+@admin_required
+def edit_judge(request, judge_id):
+    judge = get_object_or_404(Judge.objects.select_related("user"), pk=judge_id)
+    form = JudgeAccountForm(request.POST or None, judge=judge)
+
+    if form.is_valid():
+        updated_judge = form.save()
+        messages.success(request, f"Judge account {updated_judge.user.username} was updated successfully.")
+        return redirect("systemadmin:judge_list")
+
+    context = _admin_context()
+    context.update(
+        {
+            "form": form,
+            "is_edit_mode": True,
+            "judge_account": judge,
+            "linked_score_count": Score.objects.filter(judge=judge).count(),
+        }
+    )
+    return render(request, "judge_form.html", context)
+
+
+@require_POST
+@admin_required
+def delete_judge(request, judge_id):
+    judge = get_object_or_404(Judge.objects.select_related("user"), pk=judge_id)
+    linked_score_count = Score.objects.filter(judge=judge).count()
+    username = judge.user.username
+    judge.user.delete()
+
+    if linked_score_count:
+        messages.success(
+            request,
+            f"Judge account {username} was deleted. {linked_score_count} linked score records were also removed.",
+        )
+    else:
+        messages.success(request, f"Judge account {username} was deleted successfully.")
+
+    return redirect("systemadmin:judge_list")
+
+
+@admin_required
 def add_criteria(request):
     form = CriteriaForm(request.POST or None)
 
@@ -143,12 +217,14 @@ def add_criteria(request):
     return render(request, "add_criteria.html", context)
 
 
+@admin_required
 def criteria_list(request):
     context = _admin_context()
     context["criteria"] = Criteria.objects.annotate(score_count=Count("score")).order_by("id")
     return render(request, "criteria_list.html", context)
 
 
+@admin_required
 def edit_criteria(request, criteria_id):
     criterion = get_object_or_404(Criteria, pk=criteria_id)
     form = CriteriaForm(request.POST or None, instance=criterion)
@@ -171,6 +247,7 @@ def edit_criteria(request, criteria_id):
 
 
 @require_POST
+@admin_required
 def delete_criteria(request, criteria_id):
     criterion = get_object_or_404(Criteria, pk=criteria_id)
     linked_score_count = Score.objects.filter(criteria=criterion).count()
@@ -188,6 +265,7 @@ def delete_criteria(request, criteria_id):
     return redirect("systemadmin:criteria_list")
 
 
+@admin_required
 def tabulation_results(request):
     context = _admin_context()
     context.update(
@@ -199,6 +277,7 @@ def tabulation_results(request):
     return render(request, "results.html", context)
 
 
+@admin_required
 def results_data(request):
     results = []
 

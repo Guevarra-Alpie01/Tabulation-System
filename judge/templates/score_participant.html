@@ -1,43 +1,52 @@
-<h2>Scoring: {{participant.name}}</h2>
+{% extends "judge/base.html" %}
 
-<form method="POST">
+{% block title %}Score Participant{% endblock %}
+{% block page_title %}Score {{ participant.name }}{% endblock %}
+{% block page_intro %}Enter a score from 1 to 100 for each judging criterion. Submitting again updates your previous scores for this participant.{% endblock %}
 
-{% csrf_token %}
+{% block page_actions %}
+    <a href="{% url 'judge:judge_dashboard' %}" class="button secondary">Back to Dashboard</a>
+{% endblock %}
 
-<table border="1">
+{% block content %}
+    <section class="hero-panel" style="margin-bottom: 1rem;">
+        <span class="eyebrow">Participant</span>
+        <h2>{{ participant.name }}</h2>
+        <p>Judge account: {{ judge.user.username }}</p>
+    </section>
 
-<tr>
-<th>Criteria</th>
-<th>Percentage</th>
-<th>Score (1-100)</th>
-</tr>
+    <section class="form-panel">
+        <span class="eyebrow">Scoring Form</span>
+        <h2>Enter scores</h2>
 
-{% for c in criteria_list %}
+        <form method="post">
+            {% csrf_token %}
+            <div class="score-grid">
+                {% for criteria in criteria_list %}
+                    <div class="score-row">
+                        <div>
+                            <strong>{{ criteria.name }}</strong>
+                            <p>Score this category based on the participant's performance.</p>
+                        </div>
+                        <div>
+                            <span class="pill">{{ criteria.percentage|floatformat:2 }}%</span>
+                        </div>
+                        <div>
+                            <input type="number"
+                                   name="criteria_{{ criteria.id }}"
+                                   min="1"
+                                   max="100"
+                                   required
+                                   class="score-input">
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
 
-<tr>
-
-<td>{{c.name}}</td>
-
-<td>{{c.percentage}}%</td>
-
-<td>
-<input type="number"
-name="criteria_{{c.id}}"
-min="1"
-max="100"
-required>
-</td>
-
-</tr>
-
-{% endfor %}
-
-</table>
-
-<br>
-
-<button type="submit">
-Submit Scores
-</button>
-
-</form>
+            <div class="form-footer" style="margin-top: 1rem;">
+                <button type="submit" class="button">Submit Scores</button>
+                <a href="{% url 'judge:judge_dashboard' %}" class="button secondary">Cancel</a>
+            </div>
+        </form>
+    </section>
+{% endblock %}
