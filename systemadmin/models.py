@@ -1,6 +1,6 @@
 from django.contrib.auth.models import User
 from django.db import models
-from django.db.models import Max
+from django.db.models import Avg, Max
 
 
 class Criteria(models.Model):
@@ -34,11 +34,15 @@ class Participant(models.Model):
         return self.name
 
     def final_score(self):
-        scores = Score.objects.filter(participant=self)
+        averaged_scores = (
+            Score.objects.filter(participant=self)
+            .values("criteria_id", "criteria__percentage")
+            .annotate(avg_score=Avg("score_value"))
+        )
 
         total = 0
-        for s in scores:
-            total += (s.score_value / 100) * s.criteria.percentage
+        for averaged_score in averaged_scores:
+            total += (averaged_score["avg_score"] / 100) * averaged_score["criteria__percentage"]
 
         return round(total, 2)
 

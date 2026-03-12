@@ -266,7 +266,9 @@
                                 {% endif %}
                                 <div>
                                     <strong>{{ item.participant.name }}</strong>
-                                    <span class="table-subtext">{{ item.criteria_scored }} scored criteria recorded</span>
+                                    <span class="table-subtext">
+                                        {{ item.criteria_scored }} criteria averaged from {{ item.judge_score_count }} judge score entr{{ item.judge_score_count|pluralize:"y,ies" }}
+                                    </span>
                                 </div>
                             </div>
                             <div class="leader-score">{{ item.score|floatformat:2 }}</div>

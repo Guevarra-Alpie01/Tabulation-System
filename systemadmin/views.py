@@ -3,7 +3,7 @@ from collections import defaultdict
 
 from django.contrib import messages
 from django.db import transaction
-from django.db.models import Count, Sum
+from django.db.models import Avg, Count, Sum
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -16,24 +16,32 @@ from .models import Criteria, Judge, LiveCriteriaSession, LiveCriteriaSubmission
 
 def _calculate_results():
     participants = list(Participant.objects.order_by("display_order", "id"))
-    scores_by_participant = defaultdict(list)
+    averaged_scores_by_participant = defaultdict(list)
 
-    for score in Score.objects.select_related("criteria", "participant"):
-        scores_by_participant[score.participant_id].append(score)
+    averaged_scores = (
+        Score.objects.values("participant_id", "criteria_id", "criteria__percentage")
+        .annotate(avg_score=Avg("score_value"), judge_score_count=Count("judge_id"))
+    )
+
+    for averaged_score in averaged_scores:
+        averaged_scores_by_participant[averaged_score["participant_id"]].append(averaged_score)
 
     results = []
     for participant in participants:
         total = 0
-        participant_scores = scores_by_participant.get(participant.id, [])
+        participant_scores = averaged_scores_by_participant.get(participant.id, [])
+        judge_score_count = 0
 
         for score in participant_scores:
-            total += (score.score_value / 100) * score.criteria.percentage
+            total += (score["avg_score"] / 100) * score["criteria__percentage"]
+            judge_score_count += score["judge_score_count"]
 
         results.append(
             {
                 "participant": participant,
                 "score": round(total, 2),
                 "criteria_scored": len(participant_scores),
+                "judge_score_count": judge_score_count,
             }
         )
 
@@ -78,6 +86,8 @@ def _get_active_live_session():
 def _build_live_dashboard_context(active_session):
     criteria = list(Criteria.objects.order_by("display_order", "id"))
     judges = list(Judge.objects.select_related("user").order_by("user__username", "id"))
+    criteria_total = round(Criteria.objects.aggregate(total=Sum("percentage"))["total"] or 0, 2)
+    criteria_ready = bool(criteria) and abs(criteria_total - 100) < 0.01
     submission_map = {}
 
     if active_session:
@@ -101,7 +111,7 @@ def _build_live_dashboard_context(active_session):
         "live_judge_rows": judge_rows,
         "live_submission_count": len(submission_map),
         "live_pending_count": max(len(judges) - len(submission_map), 0),
-        "can_activate_live": bool(criteria) and Participant.objects.exists() and bool(judges),
+        "can_activate_live": criteria_ready and Participant.objects.exists() and bool(judges),
     }
 
 
@@ -392,6 +402,14 @@ def reorder_criteria(request):
 @transaction.atomic
 def activate_live_criterion(request, criteria_id):
     criterion = get_object_or_404(Criteria, pk=criteria_id)
+    criteria_total = round(Criteria.objects.aggregate(total=Sum("percentage"))["total"] or 0, 2)
+
+    if abs(criteria_total - 100) >= 0.01:
+        messages.error(
+            request,
+            f"The criteria total is {criteria_total:.2f}%. Balance all criteria to exactly 100% before going live.",
+        )
+        return redirect("systemadmin:admin_dashboard")
 
     if not Participant.objects.exists():
         messages.error(request, "Add at least one participant before broadcasting a live criterion.")
@@ -501,6 +519,7 @@ def results_data(request):
                 "photo_url": participant.photo.url if participant.photo else "",
                 "score": item["score"],
                 "criteria_scored": item["criteria_scored"],
+                "judge_score_count": item["judge_score_count"],
             }
         )
 

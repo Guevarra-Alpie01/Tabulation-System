@@ -2,7 +2,6 @@
 
 {% block title %}Tabulation Results{% endblock %}
 {% block page_title %}Tabulation Results{% endblock %}
-{% block page_intro %}Monitor current rankings, verify weighted scores, and keep an eye on the live scoreboard as judging data updates.{% endblock %}
 
 {% block page_actions %}
     <a href="{% url 'systemadmin:participant_list' %}" class="button secondary">Participants</a>
@@ -10,6 +9,12 @@
 {% endblock %}
 
 {% block content %}
+    {% if not admin_summary.criteria_ready %}
+        <div class="callout warning">
+            The current criteria total is {{ admin_summary.criteria_total|floatformat:2 }}%. Final weighted standings are only fully standardized when all criteria add up to exactly 100%.
+        </div>
+    {% endif %}
+
     {% if not has_scores %}
         <div class="callout warning">
             No judge scores have been submitted yet. Rankings are currently showing baseline values until scoring starts.
@@ -17,39 +22,6 @@
     {% endif %}
 
     {% if results %}
-        <section class="metric-grid">
-            <article class="metric-card">
-                <span>Ranked Participants</span>
-                <strong>{{ results|length }}</strong>
-                <p>Total contestants currently included in the leaderboard.</p>
-            </article>
-            <article class="metric-card">
-                <span>Leading Score</span>
-                <strong>{{ results.0.score|floatformat:2 }}</strong>
-                <p>Current highest weighted score across all participants.</p>
-            </article>
-            <article class="metric-card">
-                <span>Score Entries</span>
-                <strong>{{ admin_summary.score_count }}</strong>
-                <p>Submitted judging records counted in the tabulation.</p>
-            </article>
-            <article class="metric-card">
-                <span>Criteria Weight</span>
-                <strong>{{ admin_summary.criteria_total|floatformat:2 }}%</strong>
-                <p>Combined scoring weight used for the final result.</p>
-            </article>
-        </section>
-
-        <section class="leader-grid">
-            {% for item in results|slice:":3" %}
-                <article class="leader-card">
-                    <div class="podium-rank">#{{ forloop.counter }}</div>
-                    <h3>{{ item.participant.name }}</h3>
-                    <p>{{ item.criteria_scored }} criteria scored for this participant so far.</p>
-                    <strong>{{ item.score|floatformat:2 }}</strong>
-                </article>
-            {% endfor %}
-        </section>
 
         <section class="split-layout">
             <article class="panel">
@@ -67,7 +39,7 @@
                             <tr>
                                 <th>Rank</th>
                                 <th>Participant</th>
-                                <th>Criteria Scored</th>
+                                <th>Criteria Averaged</th>
                                 <th>Final Score</th>
                             </tr>
                         </thead>
@@ -84,7 +56,7 @@
                                             {% endif %}
                                             <div>
                                                 <strong>{{ item.participant.name }}</strong>
-                                                <span class="table-subtext">Eligible for live ranking updates</span>
+                                                <span class="table-subtext">Weighted from averaged judge scores</span>
                                             </div>
                                         </div>
                                     </td>
@@ -157,14 +129,14 @@
 
             return results.map((result, index) => `
                 <div class="scoreboard-row">
-                    <div class="score-meta">
-                        <div class="leader-rank ${index === 0 ? "is-top" : ""}">${index + 1}</div>
-                        ${renderAvatar(result)}
-                        <div>
-                            <strong>${escapeHtml(result.name)}</strong>
-                            <div class="score-trail">${escapeHtml(result.criteria_scored)} criteria scored</div>
+                        <div class="score-meta">
+                            <div class="leader-rank ${index === 0 ? "is-top" : ""}">${index + 1}</div>
+                            ${renderAvatar(result)}
+                            <div>
+                                <strong>${escapeHtml(result.name)}</strong>
+                                <div class="score-trail">${escapeHtml(result.criteria_scored)} criteria averaged from ${escapeHtml(result.judge_score_count)} judge score entries</div>
+                            </div>
                         </div>
-                    </div>
                     <div class="score-value">${escapeHtml(Number(result.score).toFixed(2))}</div>
                 </div>
             `).join("");

@@ -137,6 +137,19 @@ class CriteriaManagementTests(AdminAccessTestCase):
             [self.criteria.id, self.criteria_two.id, self.criteria_three.id],
         )
 
+    def test_admin_cannot_raise_criteria_total_above_100_percent(self):
+        response = self.client.post(
+            reverse("systemadmin:add_criteria"),
+            {
+                "name": "Production Value",
+                "percentage": "5",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "The total criteria weight cannot exceed 100%")
+        self.assertFalse(Criteria.objects.filter(name="Production Value").exists())
+
 
 class ParticipantManagementTests(AdminAccessTestCase):
     def setUp(self):
@@ -302,8 +315,8 @@ class JudgeScoringOrderTests(TestCase):
 class LiveBroadcastWorkflowTests(AdminAccessTestCase):
     def setUp(self):
         super().setUp()
-        self.production = Criteria.objects.create(name="Production", percentage=20)
-        self.talent = Criteria.objects.create(name="Talent", percentage=30)
+        self.production = Criteria.objects.create(name="Production", percentage=60)
+        self.talent = Criteria.objects.create(name="Talent", percentage=40)
         self.participant_one = Participant.objects.create(name="Contestant 1")
         self.participant_two = Participant.objects.create(name="Contestant 2")
         judge_user = User.objects.create_user(username="judge_live", password="judgepass123")
@@ -333,6 +346,15 @@ class LiveBroadcastWorkflowTests(AdminAccessTestCase):
         self.assertFalse(first_session.is_active)
         self.assertIsNotNone(first_session.ended_at)
         self.assertTrue(LiveCriteriaSession.objects.filter(criterion=self.talent, is_active=True).exists())
+
+    def test_live_activation_requires_criteria_total_of_100_percent(self):
+        self.talent.percentage = 20
+        self.talent.save(update_fields=["percentage"])
+
+        response = self.client.post(reverse("systemadmin:activate_live_criterion", args=[self.production.id]))
+
+        self.assertRedirects(response, reverse("systemadmin:admin_dashboard"))
+        self.assertFalse(LiveCriteriaSession.objects.filter(is_active=True).exists())
 
     def test_judge_dashboard_shows_active_live_criterion(self):
         session = LiveCriteriaSession.objects.create(
@@ -440,3 +462,47 @@ class LiveBroadcastWorkflowTests(AdminAccessTestCase):
                 "judge_has_submitted": True,
             },
         )
+
+
+class WeightedResultsCalculationTests(AdminAccessTestCase):
+    def test_results_average_judge_scores_before_applying_weights(self):
+        talent = Criteria.objects.create(name="Talent", percentage=40)
+        poise = Criteria.objects.create(name="Poise", percentage=60)
+        contestant_a = Participant.objects.create(name="Contestant A")
+        contestant_b = Participant.objects.create(name="Contestant B")
+        judge_one = Judge.objects.create(user=User.objects.create_user(username="judge_avg_1", password="pass12345"))
+        judge_two = Judge.objects.create(user=User.objects.create_user(username="judge_avg_2", password="pass12345"))
+
+        Score.objects.create(judge=judge_one, participant=contestant_a, criteria=talent, score_value=80)
+        Score.objects.create(judge=judge_two, participant=contestant_a, criteria=talent, score_value=100)
+        Score.objects.create(judge=judge_one, participant=contestant_a, criteria=poise, score_value=70)
+        Score.objects.create(judge=judge_two, participant=contestant_a, criteria=poise, score_value=90)
+
+        Score.objects.create(judge=judge_one, participant=contestant_b, criteria=talent, score_value=90)
+        Score.objects.create(judge=judge_two, participant=contestant_b, criteria=talent, score_value=80)
+        Score.objects.create(judge=judge_one, participant=contestant_b, criteria=poise, score_value=60)
+        Score.objects.create(judge=judge_two, participant=contestant_b, criteria=poise, score_value=70)
+
+        response = self.client.get(reverse("systemadmin:results_data"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json()["results"],
+            [
+                {
+                    "name": "Contestant A",
+                    "photo_url": "",
+                    "score": 84.0,
+                    "criteria_scored": 2,
+                    "judge_score_count": 4,
+                },
+                {
+                    "name": "Contestant B",
+                    "photo_url": "",
+                    "score": 73.0,
+                    "criteria_scored": 2,
+                    "judge_score_count": 4,
+                },
+            ],
+        )
+        self.assertEqual(contestant_a.final_score(), 84.0)

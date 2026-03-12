@@ -104,11 +104,11 @@
 {% block content %}
     {% if admin_summary.criteria_ready %}
         <div class="callout success">
-            The criteria set is balanced at {{ admin_summary.criteria_total|floatformat:2 }}%. Weighted scores will be calculated correctly.
+            The criteria set is balanced at {{ admin_summary.criteria_total|floatformat:2 }}%. Judge averages will be weighted correctly in the final results.
         </div>
     {% else %}
         <div class="callout warning">
-            The criteria total is {{ admin_summary.criteria_total|floatformat:2 }}%. Update the scoring mix until the full total reaches 100%.
+            The criteria total is {{ admin_summary.criteria_total|floatformat:2 }}%. Update the scoring mix until the full total reaches exactly 100%.
         </div>
     {% endif %}
 

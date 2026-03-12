@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
+from django.db.models import Sum
 
 from .models import Criteria, Judge, Participant
 
@@ -94,6 +95,36 @@ class CriteriaForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         _apply_form_input_style(self.fields)
+
+    def clean_percentage(self):
+        percentage = self.cleaned_data["percentage"]
+
+        if percentage <= 0:
+            raise ValidationError("The criterion weight must be greater than 0%.")
+
+        if percentage > 100:
+            raise ValidationError("The criterion weight cannot be greater than 100%.")
+
+        return percentage
+
+    def clean(self):
+        cleaned_data = super().clean()
+        percentage = cleaned_data.get("percentage")
+
+        if percentage is None:
+            return cleaned_data
+
+        existing_total = (
+            Criteria.objects.exclude(pk=self.instance.pk).aggregate(total=Sum("percentage"))["total"] or 0
+        )
+        projected_total = round(existing_total + percentage, 2)
+
+        if projected_total > 100.01:
+            raise ValidationError(
+                f"The total criteria weight cannot exceed 100%. This update would raise the total to {projected_total:.2f}%."
+            )
+
+        return cleaned_data
 
 
 class JudgeAccountForm(forms.Form):
