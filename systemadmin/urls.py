@@ -9,6 +9,7 @@ app_name = "systemadmin"
 urlpatterns = [
     path("admin-dash/", views.admin_dashboard, name="admin_dashboard"),
     path("participants/", views.participant_list, name="participant_list"),
+    path("participants/reorder/", views.reorder_participants, name="reorder_participants"),
     path("add-participant/", views.add_participant, name="add_participant"),
     path("participants/<int:participant_id>/edit/", views.edit_participant, name="edit_participant"),
     path("participants/<int:participant_id>/delete/", views.delete_participant, name="delete_participant"),

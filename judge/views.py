@@ -25,7 +25,7 @@ def _get_active_live_session():
 
 
 def _build_live_score_rows(judge, active_session, posted_scores=None):
-    participants = list(Participant.objects.order_by("id"))
+    participants = list(Participant.objects.order_by("display_order", "id"))
     existing_scores = {}
 
     if active_session:
@@ -53,7 +53,7 @@ def _build_live_score_rows(judge, active_session, posted_scores=None):
 
 
 def _build_dashboard_context(judge, posted_scores=None):
-    participants = list(Participant.objects.order_by("id"))
+    participants = list(Participant.objects.order_by("display_order", "id"))
     active_live_session = _get_active_live_session()
     live_submission = None
     live_score_rows = []
@@ -101,7 +101,7 @@ def submit_live_scores(request):
         messages.info(request, f"You already submitted scores for {active_live_session.criterion.name}.")
         return redirect("judge:judge_dashboard")
 
-    participants = list(Participant.objects.order_by("id"))
+    participants = list(Participant.objects.order_by("display_order", "id"))
     if not participants:
         messages.error(request, "No participants are available for live scoring.")
         return redirect("judge:judge_dashboard")

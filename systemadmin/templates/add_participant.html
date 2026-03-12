@@ -59,43 +59,6 @@
             </form>
         </article>
 
-        <aside class="panel">
-            <div class="panel-head">
-                <div>
-                    <span class="section-label">{% if is_edit_mode %}Impact{% else %}Guidance{% endif %}</span>
-                    <h2>{% if is_edit_mode %}Participant update notes{% else %}Before saving{% endif %}</h2>
-                </div>
-            </div>
-
-            <div class="tips-list">
-                <div class="tip-item">
-                    <div class="check-index">A</div>
-                    <div>
-                        <strong>Keep names consistent</strong>
-                        <p class="panel-copy">Match the participant name to the event program and judge-facing materials.</p>
-                    </div>
-                </div>
-                <div class="tip-item">
-                    <div class="check-index">B</div>
-                    <div>
-                        <strong>Use a clear photo</strong>
-                        <p class="panel-copy">Portrait-style images make live judging and result verification easier.</p>
-                    </div>
-                </div>
-                <div class="tip-item">
-                    <div class="check-index">C</div>
-                    <div>
-                        <strong>Protect participant records</strong>
-                        <p class="panel-copy">
-                            {% if is_edit_mode %}
-                                Saving changes updates the stored participant profile and refreshes every page that reads this record.
-                            {% else %}
-                                There are currently {{ admin_summary.participant_count }} participant{{ admin_summary.participant_count|pluralize }} in the system.
-                            {% endif %}
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </aside>
+    
     </section>
 {% endblock %}

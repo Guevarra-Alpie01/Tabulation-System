@@ -4,12 +4,102 @@
 {% block page_title %}Participants{% endblock %}
 {% block page_intro %}Review the current event roster, confirm photo coverage, and edit or remove participants while keeping participant records accurate in the database.{% endblock %}
 
+{% block extra_head %}
+    <style>
+        .participant-order-help {
+            margin-top: -0.2rem;
+        }
+
+        .participant-order-status {
+            margin-top: 0.75rem;
+        }
+
+        .participant-order-status.is-info {
+            background: var(--accent-soft);
+            border-color: #bfdbfe;
+            color: var(--accent);
+        }
+
+        .participant-order-status.is-error {
+            background: #fef2f2;
+            border-color: #fecaca;
+            color: var(--danger);
+        }
+
+        .participant-row {
+            transition: background-color 160ms ease;
+        }
+
+        .participant-row.is-pressing td {
+            background: rgba(37, 99, 235, 0.04);
+        }
+
+        .participant-row.is-dragging {
+            position: relative;
+            z-index: 3;
+        }
+
+        .participant-row.is-dragging td {
+            background: var(--accent-soft);
+            box-shadow: 0 14px 30px rgba(37, 99, 235, 0.12);
+        }
+
+        .participant-order-cell {
+            width: 170px;
+        }
+
+        .participant-order-stack {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+        }
+
+        .participant-order-hint {
+            display: block;
+            margin-top: 0.5rem;
+            color: var(--muted);
+            font-size: 0.84rem;
+        }
+
+        .drag-handle {
+            width: 46px;
+            height: 46px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 14px;
+            border: 1px dashed var(--border-strong);
+            background: var(--surface-muted);
+            color: var(--muted);
+            font-size: 1.08rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+        }
+
+        .drag-handle.is-active,
+        .participant-row.is-dragging .drag-handle {
+            cursor: grabbing;
+            border-style: solid;
+            border-color: #93c5fd;
+            background: #dbeafe;
+            color: var(--accent);
+        }
+    </style>
+{% endblock %}
+
 {% block page_actions %}
     <a href="{% url 'systemadmin:add_participant' %}" class="button">Add Participant</a>
     <a href="{% url 'systemadmin:tabulation_results' %}" class="button secondary">View Results</a>
 {% endblock %}
 
 {% block content %}
+    <div class="callout participant-order-help">
+        Press and hold a reorder handle, then drag to arrange the participant sequence. Judges will see this same order during scoring.
+    </div>
+
     <section class="panel">
         <div class="panel-head">
             <div>
@@ -20,21 +110,33 @@
         </div>
 
         {% if participants %}
+            <div class="callout participant-order-status" data-participant-order-status hidden aria-live="polite"></div>
             <div class="table-wrap">
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>ID</th>
+                            <th>Order</th>
                             <th>Participant</th>
                             <th>Photo Status</th>
                             <th>Linked Scores</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody data-participant-reorder-body data-reorder-url="{% url 'systemadmin:reorder_participants' %}">
                         {% for participant in participants %}
-                            <tr>
-                                <td><div class="rank-chip">{{ participant.id }}</div></td>
+                            <tr class="participant-row" data-participant-row data-participant-id="{{ participant.id }}">
+                                <td class="participant-order-cell">
+                                    <div class="participant-order-stack">
+                                        <button type="button"
+                                                class="drag-handle"
+                                                data-participant-handle
+                                                aria-label="Press and hold to reorder {{ participant.name }}">
+                                            ::
+                                        </button>
+                                        <span class="pill accent" data-order-number>{{ forloop.counter|stringformat:"02d" }}</span>
+                                    </div>
+                                    <span class="participant-order-hint">Hold, then drag</span>
+                                </td>
                                 <td>
                                     <div class="identity-cell">
                                         {% if participant.photo %}
@@ -44,7 +146,7 @@
                                         {% endif %}
                                         <div>
                                             <strong>{{ participant.name }}</strong>
-                                            <span class="table-subtext">Visible to judges during scoring</span>
+                                            <span class="table-subtext">Visible to judges in this saved roster order</span>
                                         </div>
                                     </div>
                                 </td>
@@ -86,4 +188,274 @@
             </div>
         {% endif %}
     </section>
+{% endblock %}
+
+{% block extra_script %}
+    <script>
+        (function () {
+            const reorderBody = document.querySelector("[data-participant-reorder-body]");
+            const statusBox = document.querySelector("[data-participant-order-status]");
+
+            if (!reorderBody || !statusBox) {
+                return;
+            }
+
+            const reorderUrl = reorderBody.dataset.reorderUrl;
+            const HOLD_DELAY = 260;
+            let holdTimer = null;
+            let activeRow = null;
+            let activeHandle = null;
+            let pointerId = null;
+            let startY = 0;
+            let dragStarted = false;
+            let previousOrder = [];
+
+            function getRows() {
+                return Array.from(reorderBody.querySelectorAll("[data-participant-row]"));
+            }
+
+            function getOrder() {
+                return getRows().map((row) => row.dataset.participantId);
+            }
+
+            function syncVisibleOrder() {
+                getRows().forEach((row, index) => {
+                    const orderPill = row.querySelector("[data-order-number]");
+                    if (orderPill) {
+                        orderPill.textContent = String(index + 1).padStart(2, "0");
+                    }
+                });
+            }
+
+            function renderOrder(orderedIds) {
+                const rowsById = new Map(getRows().map((row) => [row.dataset.participantId, row]));
+
+                orderedIds.forEach((participantId) => {
+                    const row = rowsById.get(String(participantId));
+                    if (row) {
+                        reorderBody.appendChild(row);
+                    }
+                });
+
+                syncVisibleOrder();
+            }
+
+            function showStatus(type, message) {
+                statusBox.hidden = false;
+                statusBox.textContent = message;
+                statusBox.className = "callout participant-order-status";
+
+                if (type === "success") {
+                    statusBox.classList.add("success");
+                } else if (type === "error") {
+                    statusBox.classList.add("is-error");
+                } else {
+                    statusBox.classList.add("is-info");
+                }
+            }
+
+            function getCsrfToken() {
+                const cookieValue = document.cookie
+                    .split("; ")
+                    .find((item) => item.startsWith("csrftoken="));
+
+                return cookieValue ? decodeURIComponent(cookieValue.split("=")[1]) : "";
+            }
+
+            async function persistOrder(fallbackOrder) {
+                const orderedIds = getOrder();
+                showStatus("info", "Saving participant order...");
+
+                try {
+                    const response = await fetch(reorderUrl, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRFToken": getCsrfToken(),
+                            "X-Requested-With": "XMLHttpRequest",
+                        },
+                        body: JSON.stringify({ ordered_ids: orderedIds }),
+                    });
+
+                    const data = await response.json();
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.error || "Unable to save the participant order.");
+                    }
+
+                    showStatus("success", "Participant order saved. Judges will now see this same roster sequence.");
+                } catch (error) {
+                    renderOrder(fallbackOrder);
+                    showStatus("error", error.message || "Unable to save the participant order.");
+                }
+            }
+
+            function clearHoldTimer() {
+                if (holdTimer) {
+                    window.clearTimeout(holdTimer);
+                    holdTimer = null;
+                }
+            }
+
+            function releasePointerCapture() {
+                if (
+                    activeHandle
+                    && pointerId !== null
+                    && activeHandle.hasPointerCapture
+                    && activeHandle.hasPointerCapture(pointerId)
+                ) {
+                    activeHandle.releasePointerCapture(pointerId);
+                }
+            }
+
+            function cleanupVisualState() {
+                if (activeRow) {
+                    activeRow.classList.remove("is-pressing", "is-dragging");
+                    activeRow.style.transform = "";
+                    activeRow.style.zIndex = "";
+                }
+
+                if (activeHandle) {
+                    activeHandle.classList.remove("is-active");
+                }
+
+                document.body.classList.remove("participant-order-dragging");
+            }
+
+            function resetInteractionState() {
+                clearHoldTimer();
+                releasePointerCapture();
+                cleanupVisualState();
+                activeRow = null;
+                activeHandle = null;
+                pointerId = null;
+                startY = 0;
+                dragStarted = false;
+                previousOrder = [];
+            }
+
+            function finishInteraction(options) {
+                const restoreOrder = Boolean(options && options.restoreOrder);
+                const fallbackOrder = previousOrder.slice();
+                const orderChanged = fallbackOrder.length && getOrder().join(",") !== fallbackOrder.join(",");
+                const shouldPersist = dragStarted && !restoreOrder && orderChanged;
+
+                if (restoreOrder && fallbackOrder.length) {
+                    renderOrder(fallbackOrder);
+                }
+
+                resetInteractionState();
+
+                if (shouldPersist) {
+                    persistOrder(fallbackOrder);
+                } else {
+                    syncVisibleOrder();
+                }
+            }
+
+            function repositionDraggedRow(clientY) {
+                if (!activeRow) {
+                    return;
+                }
+
+                const otherRows = getRows().filter((row) => row !== activeRow);
+                let insertBeforeRow = null;
+
+                for (const row of otherRows) {
+                    const rowBox = row.getBoundingClientRect();
+                    if (clientY < rowBox.top + rowBox.height / 2) {
+                        insertBeforeRow = row;
+                        break;
+                    }
+                }
+
+                if (insertBeforeRow) {
+                    reorderBody.insertBefore(activeRow, insertBeforeRow);
+                } else {
+                    reorderBody.appendChild(activeRow);
+                }
+
+                syncVisibleOrder();
+            }
+
+            reorderBody.addEventListener("pointerdown", (event) => {
+                const handle = event.target.closest("[data-participant-handle]");
+                if (!handle || activeRow) {
+                    return;
+                }
+
+                if (event.pointerType === "mouse" && event.button !== 0) {
+                    return;
+                }
+
+                activeHandle = handle;
+                activeRow = handle.closest("[data-participant-row]");
+                pointerId = event.pointerId;
+                startY = event.clientY;
+                previousOrder = getOrder();
+
+                activeRow.classList.add("is-pressing");
+                clearHoldTimer();
+                holdTimer = window.setTimeout(() => {
+                    dragStarted = true;
+                    activeRow.classList.remove("is-pressing");
+                    activeRow.classList.add("is-dragging");
+                    activeHandle.classList.add("is-active");
+                    document.body.classList.add("participant-order-dragging");
+
+                    if (activeHandle.setPointerCapture && pointerId !== null) {
+                        try {
+                            activeHandle.setPointerCapture(pointerId);
+                        } catch (error) {
+                            // Pointer capture is optional; continue without it if unavailable.
+                        }
+                    }
+                }, HOLD_DELAY);
+            });
+
+            document.addEventListener(
+                "pointermove",
+                (event) => {
+                    if (!activeRow || (pointerId !== null && event.pointerId !== pointerId)) {
+                        return;
+                    }
+
+                    if (!dragStarted) {
+                        if (Math.abs(event.clientY - startY) > 10) {
+                            finishInteraction({ restoreOrder: false });
+                        }
+                        return;
+                    }
+
+                    event.preventDefault();
+                    activeRow.style.transform = "translateY(" + (event.clientY - startY) + "px)";
+                    repositionDraggedRow(event.clientY);
+                },
+                { passive: false }
+            );
+
+            document.addEventListener("pointerup", (event) => {
+                if (!activeRow || (pointerId !== null && event.pointerId !== pointerId)) {
+                    return;
+                }
+
+                finishInteraction({ restoreOrder: false });
+            });
+
+            document.addEventListener("pointercancel", (event) => {
+                if (!activeRow || (pointerId !== null && event.pointerId !== pointerId)) {
+                    return;
+                }
+
+                finishInteraction({ restoreOrder: true });
+            });
+
+            window.addEventListener("blur", () => {
+                if (activeRow) {
+                    finishInteraction({ restoreOrder: true });
+                }
+            });
+
+            syncVisibleOrder();
+        }());
+    </script>
 {% endblock %}

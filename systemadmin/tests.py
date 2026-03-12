@@ -142,6 +142,8 @@ class ParticipantManagementTests(AdminAccessTestCase):
     def setUp(self):
         super().setUp()
         self.participant = Participant.objects.create(name="Contestant 1")
+        self.participant_two = Participant.objects.create(name="Contestant 2")
+        self.participant_three = Participant.objects.create(name="Contestant 3")
 
     def test_admin_can_edit_participant(self):
         response = self.client.post(
@@ -171,12 +173,42 @@ class ParticipantManagementTests(AdminAccessTestCase):
         self.assertRedirects(response, reverse("systemadmin:participant_list"))
         self.assertFalse(Participant.objects.filter(id=self.participant.id).exists())
         self.assertEqual(Score.objects.count(), 0)
+        self.participant_two.refresh_from_db()
+        self.participant_three.refresh_from_db()
+        self.assertEqual(self.participant_two.display_order, 1)
+        self.assertEqual(self.participant_three.display_order, 2)
 
     def test_delete_participant_requires_post(self):
         response = self.client.get(reverse("systemadmin:delete_participant", args=[self.participant.id]))
 
         self.assertEqual(response.status_code, 405)
         self.assertTrue(Participant.objects.filter(id=self.participant.id).exists())
+
+    def test_admin_can_reorder_participants(self):
+        ordered_ids = [self.participant_three.id, self.participant.id, self.participant_two.id]
+
+        response = self.client.post(
+            reverse("systemadmin:reorder_participants"),
+            data=json.dumps({"ordered_ids": ordered_ids}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(response.content, {"success": True})
+        self.assertEqual(list(Participant.objects.values_list("id", flat=True)), ordered_ids)
+
+    def test_reorder_participants_requires_full_saved_list(self):
+        response = self.client.post(
+            reverse("systemadmin:reorder_participants"),
+            data=json.dumps({"ordered_ids": [self.participant.id, self.participant_two.id]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            list(Participant.objects.order_by("display_order", "id").values_list("id", flat=True)),
+            [self.participant.id, self.participant_two.id, self.participant_three.id],
+        )
 
 
 class JudgeAccountManagementTests(AdminAccessTestCase):
@@ -315,6 +347,26 @@ class LiveBroadcastWorkflowTests(AdminAccessTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["active_live_session"], session)
         self.assertEqual(len(response.context["live_score_rows"]), 2)
+
+    def test_judge_dashboard_uses_saved_participant_order(self):
+        session = LiveCriteriaSession.objects.create(
+            criterion=self.production,
+            activated_by=self.admin_user,
+            is_active=True,
+        )
+        self.participant_one.display_order = 2
+        self.participant_one.save(update_fields=["display_order"])
+        self.participant_two.display_order = 1
+        self.participant_two.save(update_fields=["display_order"])
+        self.client.force_login(self.judge.user)
+
+        response = self.client.get(reverse("judge:judge_dashboard"))
+
+        self.assertEqual(response.context["active_live_session"], session)
+        self.assertEqual(
+            [row["participant"].id for row in response.context["live_score_rows"]],
+            [self.participant_two.id, self.participant_one.id],
+        )
 
     def test_judge_can_submit_live_scores_for_all_participants(self):
         session = LiveCriteriaSession.objects.create(

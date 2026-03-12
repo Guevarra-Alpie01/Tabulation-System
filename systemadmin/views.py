@@ -15,7 +15,7 @@ from .models import Criteria, Judge, LiveCriteriaSession, LiveCriteriaSubmission
 
 
 def _calculate_results():
-    participants = list(Participant.objects.all())
+    participants = list(Participant.objects.order_by("display_order", "id"))
     scores_by_participant = defaultdict(list)
 
     for score in Score.objects.select_related("criteria", "participant"):
@@ -51,6 +51,19 @@ def _normalize_criteria_order():
 
     if changed:
         Criteria.objects.bulk_update(changed, ["display_order"])
+
+
+def _normalize_participant_order():
+    participants = list(Participant.objects.order_by("display_order", "id"))
+    changed = []
+
+    for index, participant in enumerate(participants, start=1):
+        if participant.display_order != index:
+            participant.display_order = index
+            changed.append(participant)
+
+    if changed:
+        Participant.objects.bulk_update(changed, ["display_order"])
 
 
 def _get_active_live_session():
@@ -147,8 +160,54 @@ def add_participant(request):
 @admin_required
 def participant_list(request):
     context = _admin_context()
-    context["participants"] = Participant.objects.annotate(score_count=Count("score")).order_by("id")
+    context["participants"] = Participant.objects.annotate(score_count=Count("score")).order_by("display_order", "id")
     return render(request, "participant_list.html", context)
+
+
+@require_POST
+@admin_required
+def reorder_participants(request):
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return JsonResponse({"success": False, "error": "Invalid request payload."}, status=400)
+
+    ordered_ids = payload.get("ordered_ids")
+    if not isinstance(ordered_ids, list) or not ordered_ids:
+        return JsonResponse({"success": False, "error": "A full participant order is required."}, status=400)
+
+    normalized_ids = []
+    seen_ids = set()
+
+    for raw_id in ordered_ids:
+        try:
+            participant_id = int(raw_id)
+        except (TypeError, ValueError):
+            return JsonResponse({"success": False, "error": "Participant order contains an invalid id."}, status=400)
+
+        if participant_id in seen_ids:
+            return JsonResponse({"success": False, "error": "Participant order contains duplicate ids."}, status=400)
+
+        seen_ids.add(participant_id)
+        normalized_ids.append(participant_id)
+
+    participants = list(Participant.objects.filter(id__in=normalized_ids))
+    if len(participants) != len(normalized_ids) or len(normalized_ids) != Participant.objects.count():
+        return JsonResponse({"success": False, "error": "Participant order must include every saved participant."}, status=400)
+
+    participants_by_id = {participant.id: participant for participant in participants}
+    changed = []
+
+    for index, participant_id in enumerate(normalized_ids, start=1):
+        participant = participants_by_id[participant_id]
+        if participant.display_order != index:
+            participant.display_order = index
+            changed.append(participant)
+
+    if changed:
+        Participant.objects.bulk_update(changed, ["display_order"])
+
+    return JsonResponse({"success": True})
 
 
 @admin_required
@@ -180,6 +239,7 @@ def delete_participant(request, participant_id):
     linked_score_count = Score.objects.filter(participant=participant).count()
     participant_name = participant.name
     participant.delete()
+    _normalize_participant_order()
 
     if linked_score_count:
         messages.success(

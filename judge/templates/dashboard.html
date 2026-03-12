@@ -218,6 +218,7 @@
                                         <div class="avatar-placeholder">{{ row.participant.name|slice:":1" }}</div>
                                     {% endif %}
                                     <div>
+                                        <span class="pill">Order {{ row.participant.display_order }}</span>
                                         <strong>{{ row.participant.name }}</strong>
                                         <p>Submitted score recorded</p>
                                     </div>
@@ -251,6 +252,7 @@
                                             <div class="avatar-placeholder">{{ row.participant.name|slice:":1" }}</div>
                                         {% endif %}
                                         <div>
+                                            <span class="pill">Order {{ row.participant.display_order }}</span>
                                             <strong>{{ row.participant.name }}</strong>
                                             <p>Enter a score from 1 to 100.</p>
                                         </div>

@@ -25,6 +25,10 @@ class Criteria(models.Model):
 class Participant(models.Model):
     name = models.CharField(max_length=100)
     photo = models.ImageField(upload_to="participants/", blank=True, null=True)
+    display_order = models.PositiveIntegerField(default=0, db_index=True)
+
+    class Meta:
+        ordering = ["display_order", "id"]
 
     def __str__(self):
         return self.name
@@ -37,6 +41,13 @@ class Participant(models.Model):
             total += (s.score_value / 100) * s.criteria.percentage
 
         return round(total, 2)
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and not self.display_order:
+            max_order = type(self).objects.aggregate(max_order=Max("display_order"))["max_order"] or 0
+            self.display_order = max_order + 1
+
+        super().save(*args, **kwargs)
 
 
 class Judge(models.Model):
