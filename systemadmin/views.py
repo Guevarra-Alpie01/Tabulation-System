@@ -80,13 +80,53 @@ def add_participant(request):
 
     context = _admin_context()
     context["form"] = form
+    context["is_edit_mode"] = False
     return render(request, "add_participant.html", context)
 
 
 def participant_list(request):
     context = _admin_context()
-    context["participants"] = Participant.objects.all()
+    context["participants"] = Participant.objects.annotate(score_count=Count("score")).order_by("id")
     return render(request, "participant_list.html", context)
+
+
+def edit_participant(request, participant_id):
+    participant = get_object_or_404(Participant, pk=participant_id)
+    form = ParticipantForm(request.POST or None, request.FILES or None, instance=participant)
+
+    if form.is_valid():
+        updated_participant = form.save()
+        messages.success(request, f"{updated_participant.name} was updated successfully.")
+        return redirect("systemadmin:participant_list")
+
+    context = _admin_context()
+    context.update(
+        {
+            "form": form,
+            "is_edit_mode": True,
+            "participant": participant,
+            "linked_score_count": Score.objects.filter(participant=participant).count(),
+        }
+    )
+    return render(request, "add_participant.html", context)
+
+
+@require_POST
+def delete_participant(request, participant_id):
+    participant = get_object_or_404(Participant, pk=participant_id)
+    linked_score_count = Score.objects.filter(participant=participant).count()
+    participant_name = participant.name
+    participant.delete()
+
+    if linked_score_count:
+        messages.success(
+            request,
+            f"{participant_name} was deleted. {linked_score_count} linked score records were also removed.",
+        )
+    else:
+        messages.success(request, f"{participant_name} was deleted successfully.")
+
+    return redirect("systemadmin:participant_list")
 
 
 def add_criteria(request):

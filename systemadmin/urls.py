@@ -11,6 +11,8 @@ urlpatterns = [
 
     path("participants/", views.participant_list, name="participant_list"),
     path("add-participant/", views.add_participant, name="add_participant"),
+    path("participants/<int:participant_id>/edit/", views.edit_participant, name="edit_participant"),
+    path("participants/<int:participant_id>/delete/", views.delete_participant, name="delete_participant"),
 
     path("criteria/", views.criteria_list, name="criteria_list"),
     path("add-criteria/", views.add_criteria, name="add_criteria"),

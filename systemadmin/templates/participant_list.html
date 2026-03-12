@@ -2,7 +2,7 @@
 
 {% block title %}Participants{% endblock %}
 {% block page_title %}Participants{% endblock %}
-{% block page_intro %}Review the current event roster, confirm photo coverage, and move back into participant creation when needed.{% endblock %}
+{% block page_intro %}Review the current event roster, confirm photo coverage, and edit or remove participants while keeping participant records accurate in the database.{% endblock %}
 
 {% block page_actions %}
     <a href="{% url 'systemadmin:add_participant' %}" class="button">Add Participant</a>
@@ -27,7 +27,8 @@
                             <th>ID</th>
                             <th>Participant</th>
                             <th>Photo Status</th>
-                            <th>Quick Action</th>
+                            <th>Linked Scores</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -54,7 +55,22 @@
                                         <span class="pill warning">Photo Missing</span>
                                     {% endif %}
                                 </td>
-                                <td><div class="table-actions"><a href="{% url 'systemadmin:tabulation_results' %}" class="inline-link">Check ranking</a></div></td>
+                                <td>
+                                    <span class="pill">{{ participant.score_count }}</span>
+                                </td>
+                                <td>
+                                    <div class="table-actions">
+                                        <a href="{% url 'systemadmin:edit_participant' participant.id %}" class="button secondary button-small">Edit</a>
+                                        <form method="post"
+                                              action="{% url 'systemadmin:delete_participant' participant.id %}"
+                                              class="inline-form"
+                                              onsubmit="return confirm('Delete {{ participant.name|escapejs }}?{% if participant.score_count %} This will also remove {{ participant.score_count }} linked score record{{ participant.score_count|pluralize }}.{% endif %}');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="button danger button-small">Delete</button>
+                                        </form>
+                                        <a href="{% url 'systemadmin:tabulation_results' %}" class="inline-link">Check ranking</a>
+                                    </div>
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>

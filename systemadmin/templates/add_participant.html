@@ -1,8 +1,14 @@
 {% extends "systemadmin/base.html" %}
 
-{% block title %}Add Participant{% endblock %}
-{% block page_title %}Add Participant{% endblock %}
-{% block page_intro %}Create a participant profile with a clear display name and optional photo for a cleaner judging experience.{% endblock %}
+{% block title %}{% if is_edit_mode %}Edit Participant{% else %}Add Participant{% endif %}{% endblock %}
+{% block page_title %}{% if is_edit_mode %}Edit Participant{% else %}Add Participant{% endif %}{% endblock %}
+{% block page_intro %}
+    {% if is_edit_mode %}
+        Update participant information and photo details. Changes are saved to the database immediately and will be reflected in scoring and results views.
+    {% else %}
+        Create a participant profile with a clear display name and optional photo for a cleaner judging experience.
+    {% endif %}
+{% endblock %}
 
 {% block page_actions %}
     <a href="{% url 'systemadmin:participant_list' %}" class="button secondary">Participant List</a>
@@ -14,11 +20,17 @@
         <article class="panel">
             <div class="panel-head">
                 <div>
-                    <span class="section-label">New Entry</span>
-                    <h2>Participant details</h2>
+                    <span class="section-label">Roster Setup</span>
+                    <h2>{% if is_edit_mode %}Update participant details{% else %}Participant details{% endif %}</h2>
                 </div>
-                <span class="pill accent">Step 1</span>
+                <span class="pill accent">{% if is_edit_mode %}Edit{% else %}Step 1{% endif %}</span>
             </div>
+
+            {% if is_edit_mode and linked_score_count %}
+                <div class="callout warning">
+                    This participant is linked to {{ linked_score_count }} score entr{{ linked_score_count|pluralize:"y,ies" }}. Updating the profile will be reflected anywhere those scores appear.
+                </div>
+            {% endif %}
 
             <form method="post" enctype="multipart/form-data" class="form-layout">
                 {% csrf_token %}
@@ -41,7 +53,7 @@
                 </div>
 
                 <div class="form-footer">
-                    <button type="submit" class="button">Save Participant</button>
+                    <button type="submit" class="button">{% if is_edit_mode %}Save Changes{% else %}Save Participant{% endif %}</button>
                     <a href="{% url 'systemadmin:participant_list' %}" class="button secondary">Cancel</a>
                 </div>
             </form>
@@ -50,8 +62,8 @@
         <aside class="panel">
             <div class="panel-head">
                 <div>
-                    <span class="section-label">Guidance</span>
-                    <h2>Before saving</h2>
+                    <span class="section-label">{% if is_edit_mode %}Impact{% else %}Guidance{% endif %}</span>
+                    <h2>{% if is_edit_mode %}Participant update notes{% else %}Before saving{% endif %}</h2>
                 </div>
             </div>
 
@@ -73,8 +85,14 @@
                 <div class="tip-item">
                     <div class="check-index">C</div>
                     <div>
-                        <strong>Confirm roster count</strong>
-                        <p class="panel-copy">There are currently {{ admin_summary.participant_count }} participant{{ admin_summary.participant_count|pluralize }} in the system.</p>
+                        <strong>Protect participant records</strong>
+                        <p class="panel-copy">
+                            {% if is_edit_mode %}
+                                Saving changes updates the stored participant profile and refreshes every page that reads this record.
+                            {% else %}
+                                There are currently {{ admin_summary.participant_count }} participant{{ admin_summary.participant_count|pluralize }} in the system.
+                            {% endif %}
+                        </p>
                     </div>
                 </div>
             </div>
