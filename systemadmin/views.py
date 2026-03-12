@@ -2,14 +2,16 @@ import json
 from collections import defaultdict
 
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Count, Sum
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .auth_utils import admin_required
 from .forms import CriteriaForm, JudgeAccountForm, ParticipantForm
-from .models import Criteria, Judge, Participant, Score
+from .models import Criteria, Judge, LiveCriteriaSession, LiveCriteriaSubmission, Participant, Score
 
 
 def _calculate_results():
@@ -51,6 +53,45 @@ def _normalize_criteria_order():
         Criteria.objects.bulk_update(changed, ["display_order"])
 
 
+def _get_active_live_session():
+    return (
+        LiveCriteriaSession.objects.filter(is_active=True)
+        .select_related("criterion", "activated_by")
+        .order_by("-activated_at", "-id")
+        .first()
+    )
+
+
+def _build_live_dashboard_context(active_session):
+    criteria = list(Criteria.objects.order_by("display_order", "id"))
+    judges = list(Judge.objects.select_related("user").order_by("user__username", "id"))
+    submission_map = {}
+
+    if active_session:
+        submission_map = {
+            submission.judge_id: submission
+            for submission in LiveCriteriaSubmission.objects.filter(session=active_session).select_related("judge__user")
+        }
+
+    judge_rows = [
+        {
+            "judge": judge,
+            "submitted": judge.id in submission_map,
+            "submitted_at": submission_map[judge.id].submitted_at if judge.id in submission_map else None,
+        }
+        for judge in judges
+    ]
+
+    return {
+        "criteria": criteria,
+        "active_live_session": active_session,
+        "live_judge_rows": judge_rows,
+        "live_submission_count": len(submission_map),
+        "live_pending_count": max(len(judges) - len(submission_map), 0),
+        "can_activate_live": bool(criteria) and Participant.objects.exists() and bool(judges),
+    }
+
+
 def _admin_context():
     participant_count = Participant.objects.count()
     criteria_count = Criteria.objects.count()
@@ -76,11 +117,13 @@ def _admin_context():
 @admin_required
 def admin_dashboard(request):
     results = _calculate_results()
+    active_live_session = _get_active_live_session()
     context = _admin_context()
     context.update(
         {
             "top_results": results[:5],
             "has_scores": Score.objects.exists(),
+            **_build_live_dashboard_context(active_live_session),
         }
     )
     return render(request, "admin_dashboard.html", context)
@@ -282,6 +325,54 @@ def reorder_criteria(request):
         Criteria.objects.bulk_update(changed, ["display_order"])
 
     return JsonResponse({"success": True})
+
+
+@require_POST
+@admin_required
+@transaction.atomic
+def activate_live_criterion(request, criteria_id):
+    criterion = get_object_or_404(Criteria, pk=criteria_id)
+
+    if not Participant.objects.exists():
+        messages.error(request, "Add at least one participant before broadcasting a live criterion.")
+        return redirect("systemadmin:admin_dashboard")
+
+    if not Judge.objects.exists():
+        messages.error(request, "Add at least one judge account before broadcasting a live criterion.")
+        return redirect("systemadmin:admin_dashboard")
+
+    active_session = _get_active_live_session()
+    if active_session and active_session.criterion_id == criterion.id:
+        messages.info(request, f"{criterion.name} is already live on the judges' screens.")
+        return redirect("systemadmin:admin_dashboard")
+
+    if active_session:
+        active_session.is_active = False
+        active_session.ended_at = timezone.now()
+        active_session.save(update_fields=["is_active", "ended_at"])
+
+    LiveCriteriaSession.objects.create(
+        criterion=criterion,
+        activated_by=request.user,
+        is_active=True,
+    )
+    messages.success(request, f"{criterion.name} is now live for all judges.")
+    return redirect("systemadmin:admin_dashboard")
+
+
+@require_POST
+@admin_required
+def stop_live_criterion(request):
+    active_session = _get_active_live_session()
+    if not active_session:
+        messages.info(request, "There is no live criterion to stop.")
+        return redirect("systemadmin:admin_dashboard")
+
+    active_session.is_active = False
+    active_session.ended_at = timezone.now()
+    active_session.save(update_fields=["is_active", "ended_at"])
+    messages.success(request, f"Live broadcast for {active_session.criterion.name} has been stopped.")
+    return redirect("systemadmin:admin_dashboard")
 
 
 @admin_required

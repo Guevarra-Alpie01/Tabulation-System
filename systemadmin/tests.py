@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Criteria, Judge, Participant, Score
+from .models import Criteria, Judge, LiveCriteriaSession, LiveCriteriaSubmission, Participant, Score
 
 
 User = get_user_model()
@@ -264,4 +264,127 @@ class JudgeScoringOrderTests(TestCase):
         self.assertEqual(
             [criterion.id for criterion in response.context["criteria_list"]],
             [second.id, third.id, first.id],
+        )
+
+
+class LiveBroadcastWorkflowTests(AdminAccessTestCase):
+    def setUp(self):
+        super().setUp()
+        self.production = Criteria.objects.create(name="Production", percentage=20)
+        self.talent = Criteria.objects.create(name="Talent", percentage=30)
+        self.participant_one = Participant.objects.create(name="Contestant 1")
+        self.participant_two = Participant.objects.create(name="Contestant 2")
+        judge_user = User.objects.create_user(username="judge_live", password="judgepass123")
+        self.judge = Judge.objects.create(user=judge_user)
+        second_user = User.objects.create_user(username="judge_pending", password="judgepass123")
+        self.second_judge = Judge.objects.create(user=second_user)
+
+    def test_admin_can_activate_live_criterion(self):
+        response = self.client.post(reverse("systemadmin:activate_live_criterion", args=[self.production.id]))
+
+        self.assertRedirects(response, reverse("systemadmin:admin_dashboard"))
+        active_session = LiveCriteriaSession.objects.get(is_active=True)
+        self.assertEqual(active_session.criterion, self.production)
+        self.assertEqual(active_session.activated_by, self.admin_user)
+
+    def test_activating_new_live_criterion_closes_previous_session(self):
+        first_session = LiveCriteriaSession.objects.create(
+            criterion=self.production,
+            activated_by=self.admin_user,
+            is_active=True,
+        )
+
+        response = self.client.post(reverse("systemadmin:activate_live_criterion", args=[self.talent.id]))
+
+        self.assertRedirects(response, reverse("systemadmin:admin_dashboard"))
+        first_session.refresh_from_db()
+        self.assertFalse(first_session.is_active)
+        self.assertIsNotNone(first_session.ended_at)
+        self.assertTrue(LiveCriteriaSession.objects.filter(criterion=self.talent, is_active=True).exists())
+
+    def test_judge_dashboard_shows_active_live_criterion(self):
+        session = LiveCriteriaSession.objects.create(
+            criterion=self.production,
+            activated_by=self.admin_user,
+            is_active=True,
+        )
+        self.client.force_login(self.judge.user)
+
+        response = self.client.get(reverse("judge:judge_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["active_live_session"], session)
+        self.assertEqual(len(response.context["live_score_rows"]), 2)
+
+    def test_judge_can_submit_live_scores_for_all_participants(self):
+        session = LiveCriteriaSession.objects.create(
+            criterion=self.production,
+            activated_by=self.admin_user,
+            is_active=True,
+        )
+        self.client.force_login(self.judge.user)
+
+        response = self.client.post(
+            reverse("judge:submit_live_scores"),
+            {
+                "live_session_id": str(session.id),
+                f"participant_{self.participant_one.id}": "92",
+                f"participant_{self.participant_two.id}": "87",
+            },
+        )
+
+        self.assertRedirects(response, reverse("judge:judge_dashboard"))
+        self.assertTrue(
+            LiveCriteriaSubmission.objects.filter(session=session, judge=self.judge).exists()
+        )
+        self.assertEqual(
+            Score.objects.get(judge=self.judge, participant=self.participant_one, criteria=self.production).score_value,
+            92,
+        )
+        self.assertEqual(
+            Score.objects.get(judge=self.judge, participant=self.participant_two, criteria=self.production).score_value,
+            87,
+        )
+
+    def test_judge_live_submission_requires_score_for_every_participant(self):
+        session = LiveCriteriaSession.objects.create(
+            criterion=self.production,
+            activated_by=self.admin_user,
+            is_active=True,
+        )
+        self.client.force_login(self.judge.user)
+
+        response = self.client.post(
+            reverse("judge:submit_live_scores"),
+            {
+                "live_session_id": str(session.id),
+                f"participant_{self.participant_one.id}": "92",
+                f"participant_{self.participant_two.id}": "",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "Enter a score for Contestant 2.", status_code=400)
+        self.assertFalse(LiveCriteriaSubmission.objects.filter(session=session, judge=self.judge).exists())
+        self.assertFalse(Score.objects.filter(judge=self.judge, criteria=self.production).exists())
+
+    def test_live_status_reports_current_session_and_submission_state(self):
+        session = LiveCriteriaSession.objects.create(
+            criterion=self.production,
+            activated_by=self.admin_user,
+            is_active=True,
+        )
+        LiveCriteriaSubmission.objects.create(session=session, judge=self.judge)
+        self.client.force_login(self.judge.user)
+
+        response = self.client.get(reverse("judge:live_status"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(
+            response.content,
+            {
+                "active_session_id": session.id,
+                "criterion_name": "Production",
+                "judge_has_submitted": True,
+            },
         )

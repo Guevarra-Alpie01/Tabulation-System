@@ -2,7 +2,114 @@
 
 {% block title %}Admin Dashboard{% endblock %}
 {% block page_title %}System Admin Dashboard{% endblock %}
-{% block page_intro %}A clean local dashboard for managing criteria, participants, and results without any internet dependency or external assets.{% endblock %}
+{% block page_intro %}Broadcast a judging criterion live to every judge, monitor submission progress, and keep the scoring flow moving in the intended sequence.{% endblock %}
+
+{% block extra_head %}
+    <style>
+        .broadcast-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.9fr);
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .broadcast-stack {
+            display: grid;
+            gap: 0.85rem;
+        }
+
+        .broadcast-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.95rem 1rem;
+            border-radius: 18px;
+            border: 1px solid var(--border);
+            background: var(--surface-muted);
+        }
+
+        .broadcast-row.is-live {
+            border-color: #bbf7d0;
+            background: #f0fdf4;
+        }
+
+        .broadcast-row h3 {
+            margin: 0 0 0.2rem;
+            font-size: 1.08rem;
+        }
+
+        .broadcast-row p {
+            margin: 0;
+            color: var(--muted);
+        }
+
+        .broadcast-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+            margin-top: 0.45rem;
+        }
+
+        .live-banner {
+            padding: 1rem 1.05rem;
+            border-radius: 20px;
+            border: 1px solid #bbf7d0;
+            background: #f0fdf4;
+        }
+
+        .live-banner p {
+            margin-top: 0.4rem;
+        }
+
+        .judge-progress-list {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .judge-progress-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.9rem 1rem;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            background: var(--surface-muted);
+        }
+
+        .judge-progress-row strong {
+            display: block;
+        }
+
+        .judge-progress-row p {
+            margin: 0.15rem 0 0;
+            color: var(--muted);
+        }
+
+        .judge-progress-copy {
+            margin-bottom: 1rem;
+        }
+
+        .leader-section {
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 1100px) {
+            .broadcast-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 680px) {
+            .broadcast-row,
+            .judge-progress-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+{% endblock %}
 
 {% block page_actions %}
     <a href="{% url 'systemadmin:add_judge' %}" class="button">Add Judge</a>
@@ -10,175 +117,133 @@
 {% endblock %}
 
 {% block content %}
-    <section class="panel dashboard-hero">
-        <div class="dashboard-hero-grid">
-            <div>
-                <span class="section-label">Local Deployment Ready</span>
-                <h2>Run setup, scoring prep, and live monitoring from one offline-friendly admin workspace.</h2>
-                <p class="hero-note">
-                    This interface uses only local template, CSS, and JavaScript resources, making it stable for local Django deployment on desktop, tablet, and mobile screens.
-                </p>
-                <div class="hero-actions" style="margin-top: 1rem;">
-                    <a href="{% url 'systemadmin:judge_list' %}" class="button">Manage Judges</a>
-                    <a href="{% url 'systemadmin:participant_list' %}" class="button">Manage Participants</a>
-                    <a href="{% url 'systemadmin:criteria_list' %}" class="button secondary">Manage Criteria</a>
-                    <a href="{% url 'systemadmin:tabulation_results' %}" class="button ghost">Open Results</a>
-                </div>
-            </div>
-
-            <div class="hero-status-list">
-                <div class="hero-status-item">
-                    <div class="check-index">01</div>
-                    <div>
-                        <strong>Participant roster</strong>
-                        <p>{{ admin_summary.participant_count }} participant{{ admin_summary.participant_count|pluralize }} currently available for scoring.</p>
-                    </div>
-                </div>
-                <div class="hero-status-item">
-                    <div class="check-index">02</div>
-                    <div>
-                        <strong>Criteria balance</strong>
-                        <p>Total configured weight is {{ admin_summary.criteria_total|floatformat:2 }}%.</p>
-                    </div>
-                </div>
-                <div class="hero-status-item">
-                    <div class="check-index">03</div>
-                    <div>
-                        <strong>Judge accounts</strong>
-                        <p>{{ admin_summary.judge_count }} judge account{{ admin_summary.judge_count|pluralize }} can currently sign in to score.</p>
-                    </div>
-                </div>
-                <div class="hero-status-item">
-                    <div class="check-index">04</div>
-                    <div>
-                        <strong>Score activity</strong>
-                        <p>{{ admin_summary.score_count }} score entr{{ admin_summary.score_count|pluralize:"y,ies" }} have been recorded so far.</p>
-                    </div>
-                </div>
-            </div>
+    {% if not can_activate_live %}
+        <div class="callout warning">
+            Live broadcasting requires at least one criterion, one participant, and one judge account. Complete those setup steps before going live.
         </div>
-    </section>
+    {% endif %}
 
-    <section class="metric-grid">
-        <article class="metric-card">
-            <span>Registered Participants</span>
-            <strong>{{ admin_summary.participant_count }}</strong>
-            <p>Profiles listed for judge-facing scoring pages.</p>
-        </article>
-        <article class="metric-card">
-            <span>Judging Criteria</span>
-            <strong>{{ admin_summary.criteria_count }}</strong>
-            <p>Scoring categories active in the current event setup.</p>
-        </article>
-        <article class="metric-card">
-            <span>Assigned Judges</span>
-            <strong>{{ admin_summary.judge_count }}</strong>
-            <p>Judge accounts connected to the tabulation process.</p>
-        </article>
-        <article class="metric-card">
-            <span>Submitted Scores</span>
-            <strong>{{ admin_summary.score_count }}</strong>
-            <p>Weighted entries included in the live ranking.</p>
-        </article>
-    </section>
-
-    <section class="action-grid">
-        <article class="action-card">
-            <span class="section-label">Step 1</span>
-            <h3>Create judge accounts</h3>
-            <p>Add one or more judges with their own usernames and passwords before opening the scoring process.</p>
-            <div class="button-row" style="justify-content:flex-start;">
-                <a href="{% url 'systemadmin:add_judge' %}" class="button">Add Judge</a>
-                <a href="{% url 'systemadmin:judge_list' %}" class="button secondary">View Judges</a>
-            </div>
-        </article>
-
-        <article class="action-card">
-            <span class="section-label">Step 2</span>
-            <h3>Add and review participants</h3>
-            <p>Create the participant roster and confirm each profile is ready for judge review on smaller and larger screens.</p>
-            <div class="button-row" style="justify-content:flex-start;">
-                <a href="{% url 'systemadmin:add_participant' %}" class="button">Add Participant</a>
-                <a href="{% url 'systemadmin:participant_list' %}" class="button secondary">View List</a>
-            </div>
-        </article>
-
-        <article class="action-card">
-            <span class="section-label">Step 3</span>
-            <h3>Set the criteria weights</h3>
-            <p>Keep the scoring framework clear and make sure the full criteria total stays at 100% for accurate results.</p>
-            <div class="button-row" style="justify-content:flex-start;">
-                <a href="{% url 'systemadmin:add_criteria' %}" class="button">Add Criteria</a>
-                <a href="{% url 'systemadmin:criteria_list' %}" class="button secondary">Review Criteria</a>
-            </div>
-        </article>
-
-        <article class="action-card">
-            <span class="section-label">Step 4</span>
-            <h3>Track current standings</h3>
-            <p>Open the results page to monitor rankings and verify the latest scores from the local tabulation feed.</p>
-            <div class="button-row" style="justify-content:flex-start;">
-                <a href="{% url 'systemadmin:tabulation_results' %}" class="button">View Results</a>
-            </div>
-        </article>
-    </section>
-
-    <section class="dual-panel">
+    <section class="broadcast-grid">
         <article class="panel">
             <div class="panel-head">
                 <div>
-                    <span class="section-label">Readiness</span>
-                    <h2>Setup checklist</h2>
+                    <span class="section-label">Live Broadcast</span>
+                    <h2>Criterion control</h2>
                 </div>
-                {% if admin_summary.criteria_ready %}
-                    <span class="pill success">Ready to score</span>
+                {% if active_live_session %}
+                    <span class="pill success">Live Now</span>
                 {% else %}
-                    <span class="pill warning">Needs update</span>
+                    <span class="pill">Standby</span>
                 {% endif %}
             </div>
 
-            <div class="checklist">
-                <div class="check-item">
-                    <div class="check-index">1</div>
-                    <div>
-                        <strong>Participants</strong>
-                        <p class="panel-copy">{{ admin_summary.participant_count }} participant{{ admin_summary.participant_count|pluralize }} have been added to the event roster.</p>
+            {% if active_live_session %}
+                <div class="live-banner">
+                    <strong>{{ active_live_session.criterion.name }} is live on all judge dashboards.</strong>
+                    <p>
+                        Judges are scoring every participant from 1 to 100 for this criterion. {{ live_submission_count }} of
+                        {{ admin_summary.judge_count }} judge{{ admin_summary.judge_count|pluralize }} have submitted.
+                    </p>
+                    <div class="button-row" style="margin-top: 0.85rem;">
+                        <form method="post"
+                              action="{% url 'systemadmin:stop_live_criterion' %}"
+                              class="inline-form"
+                              onsubmit="return confirm('Stop the live broadcast for {{ active_live_session.criterion.name|escapejs }}? Judges will return to standby.');">
+                            {% csrf_token %}
+                            <button type="submit" class="button danger">Stop Live</button>
+                        </form>
                     </div>
-                    {% if admin_summary.participant_count %}
-                        <span class="pill success">Ready</span>
-                    {% else %}
-                        <span class="pill warning">Missing</span>
-                    {% endif %}
                 </div>
+            {% else %}
+                <div class="callout">
+                    No criterion is live right now. Choose the next criterion below and broadcast it to all judges.
+                </div>
+            {% endif %}
 
-                <div class="check-item">
-                    <div class="check-index">2</div>
-                    <div>
-                        <strong>Criteria total</strong>
-                        <p class="panel-copy">Current overall weight: {{ admin_summary.criteria_total|floatformat:2 }}%.</p>
+            <div class="broadcast-stack" style="margin-top: 1rem;">
+                {% if criteria %}
+                    {% for criterion in criteria %}
+                        <div class="broadcast-row {% if active_live_session and active_live_session.criterion_id == criterion.id %}is-live{% endif %}">
+                            <div>
+                                <h3>{{ forloop.counter|stringformat:"02d" }}. {{ criterion.name }}</h3>
+                                <p>Broadcast this criterion to every judge for the current live scoring round.</p>
+                                <div class="broadcast-meta">
+                                    <span class="pill accent">{{ criterion.percentage|floatformat:2 }}%</span>
+                                    <span class="pill">Order {{ criterion.display_order }}</span>
+                                </div>
+                            </div>
+                            <div class="button-row">
+                                {% if active_live_session and active_live_session.criterion_id == criterion.id %}
+                                    <button type="button" class="button secondary" disabled>On Air</button>
+                                {% else %}
+                                    <form method="post"
+                                          action="{% url 'systemadmin:activate_live_criterion' criterion.id %}"
+                                          class="inline-form"
+                                          onsubmit="return confirm('Broadcast {{ criterion.name|escapejs }} live to all judges now?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="button" {% if not can_activate_live %}disabled{% endif %}>Go Live</button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <h3>No criteria available</h3>
+                        <p>Add judging criteria before broadcasting a live scoring round.</p>
                     </div>
-                    {% if admin_summary.criteria_ready %}
-                        <span class="pill success">Balanced</span>
-                    {% else %}
-                        <span class="pill warning">Adjust</span>
-                    {% endif %}
-                </div>
-
-                <div class="check-item">
-                    <div class="check-index">3</div>
-                    <div>
-                        <strong>Live score intake</strong>
-                        <p class="panel-copy">{{ admin_summary.score_count }} score entr{{ admin_summary.score_count|pluralize:"y,ies" }} received from {{ admin_summary.judge_count }} judge{{ admin_summary.judge_count|pluralize }}.</p>
-                    </div>
-                    {% if has_scores %}
-                        <span class="pill accent">Active</span>
-                    {% else %}
-                        <span class="pill">Waiting</span>
-                    {% endif %}
-                </div>
+                {% endif %}
             </div>
         </article>
 
+        <article class="panel">
+            <div class="panel-head">
+                <div>
+                    <span class="section-label">Judge Progress</span>
+                    <h2>Live submission status</h2>
+                </div>
+                <span class="pill accent">{{ live_submission_count }} submitted</span>
+            </div>
+
+            {% if active_live_session %}
+                <p class="judge-progress-copy">
+                    Tracking live submissions for <strong>{{ active_live_session.criterion.name }}</strong>. Pending judges will remain on the active score sheet until they submit.
+                </p>
+
+                {% if live_judge_rows %}
+                    <div class="judge-progress-list">
+                        {% for row in live_judge_rows %}
+                            <div class="judge-progress-row">
+                                <div>
+                                    <strong>{{ row.judge.user.username }}</strong>
+                                    {% if row.submitted_at %}
+                                        <p>Submitted on {{ row.submitted_at|date:"M d, Y h:i A" }}</p>
+                                    {% else %}
+                                        <p>Waiting for this judge to complete the live score sheet.</p>
+                                    {% endif %}
+                                </div>
+                                <span class="pill {% if row.submitted %}success{% endif %}">
+                                    {% if row.submitted %}Submitted{% else %}Pending{% endif %}
+                                </span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <h3>No judges added yet</h3>
+                        <p>Create judge accounts so live submissions can be tracked here.</p>
+                    </div>
+                {% endif %}
+            {% else %}
+                <div class="empty-state">
+                    <h3>No active broadcast</h3>
+                    <p>Start a live criterion to monitor judge submissions in real time from this panel.</p>
+                </div>
+            {% endif %}
+        </article>
+    </section>
+
+    <section class="leader-section">
         <article class="panel">
             <div class="panel-head">
                 <div>

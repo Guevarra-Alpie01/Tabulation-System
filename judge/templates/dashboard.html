@@ -2,66 +2,330 @@
 
 {% block title %}Judge Dashboard{% endblock %}
 {% block page_title %}Judge Dashboard{% endblock %}
-{% block page_intro %}Signed in as {{ judge.user.username }}. Select a participant to enter or update scores for the active judging criteria.{% endblock %}
+{% block page_intro %}
+    {% if active_live_session %}
+        Signed in as {{ judge.user.username }}. The live scoring round for {{ active_live_session.criterion.name }} is active now.
+    {% else %}
+        Signed in as {{ judge.user.username }}. Stay on this screen and the next live judging criterion will appear automatically.
+    {% endif %}
+{% endblock %}
+
+{% block extra_head %}
+    <style>
+        .live-hero {
+            display: grid;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .live-status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.85rem;
+            margin-top: 1rem;
+        }
+
+        .live-status-card {
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            background: var(--surface-muted);
+        }
+
+        .live-status-card span {
+            display: block;
+            color: var(--muted);
+            font-size: 0.82rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .live-status-card strong {
+            display: block;
+            font-size: 1.15rem;
+        }
+
+        .live-badge-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.85rem;
+        }
+
+        .pill.success {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+            color: var(--success);
+        }
+
+        .live-form-grid {
+            display: grid;
+            gap: 0.9rem;
+            margin-top: 1rem;
+        }
+
+        .live-score-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1.45fr) 110px 150px;
+            gap: 0.8rem;
+            align-items: center;
+            padding: 0.95rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            background: var(--surface-muted);
+        }
+
+        .live-score-help {
+            margin-top: 0.3rem;
+            font-size: 0.92rem;
+        }
+
+        .live-score-input {
+            width: 100%;
+            min-height: 48px;
+            padding: 0.75rem 0.9rem;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+        }
+
+        .live-score-input:focus {
+            outline: none;
+            border-color: #93c5fd;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+        }
+
+        .submission-summary {
+            display: grid;
+            gap: 0.8rem;
+            margin-top: 1rem;
+        }
+
+        .submission-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.95rem 1rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            background: var(--surface-muted);
+        }
+
+        .live-note {
+            margin-top: 0.9rem;
+        }
+
+        @media (max-width: 760px) {
+            .live-score-row {
+                grid-template-columns: 1fr;
+            }
+
+            .submission-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+{% endblock %}
 
 {% block content %}
-    <section class="metric-grid">
-        <article class="metric-card">
-            <span>Participants</span>
-            <strong>{{ participants|length }}</strong>
-            <p>Contestants available for scoring.</p>
-        </article>
-        <article class="metric-card">
-            <span>Judge Account</span>
-            <strong>{{ judge.user.username }}</strong>
-            <p>Your scoring activity is saved under this login.</p>
-        </article>
-    </section>
+    <div id="judge-live-root"
+         data-live-status-url="{% url 'judge:live_status' %}"
+         data-active-session-id="{% if active_live_session %}{{ active_live_session.id }}{% endif %}"
+         data-has-submitted="{% if live_submission %}1{% else %}0{% endif %}">
+        <section class="metric-grid">
+            <article class="metric-card">
+                <span>Participants</span>
+                <strong>{{ participants|length }}</strong>
+                <p>Contestants included in the current event roster.</p>
+            </article>
+            <article class="metric-card">
+                <span>Judge Account</span>
+                <strong>{{ judge.user.username }}</strong>
+                <p>Your live submissions are saved under this login.</p>
+            </article>
+            <article class="metric-card">
+                <span>Live Criterion</span>
+                <strong>{% if active_live_session %}{{ active_live_session.criterion.name }}{% else %}Waiting{% endif %}</strong>
+                <p>
+                    {% if active_live_session %}
+                        Weight {{ active_live_session.criterion.percentage|floatformat:2 }}%
+                    {% else %}
+                        Waiting for the Admin/Tabulator to go live.
+                    {% endif %}
+                </p>
+            </article>
+        </section>
 
-    <section class="table-panel">
-        <span class="eyebrow">Scoring Queue</span>
-        <h2>Participants</h2>
+        {% if active_live_session %}
+            <section class="hero-panel live-hero">
+                <div>
+                    <div class="live-badge-row">
+                        <span class="eyebrow" style="margin-bottom:0;">Live Scoring</span>
+                        <span class="pill success">On Air</span>
+                        <span class="pill">{{ active_live_session.criterion.percentage|floatformat:2 }}%</span>
+                    </div>
+                    <h2>{{ active_live_session.criterion.name }}</h2>
+                    <p class="live-score-help">
+                        Score every participant from 1 to 100 for this active criterion. Submit only after you verify the full batch.
+                    </p>
+                </div>
 
-        {% if participants %}
-            <div class="table-wrap">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Participant</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for participant in participants %}
-                            <tr>
-                                <td><div class="rank-chip">{{ participant.id }}</div></td>
-                                <td>
+                <div class="live-status-grid">
+                    <div class="live-status-card">
+                        <span>Participants to Score</span>
+                        <strong>{{ participants|length }}</strong>
+                    </div>
+                    <div class="live-status-card">
+                        <span>Broadcast Started</span>
+                        <strong>{{ active_live_session.activated_at|date:"M d, Y h:i A" }}</strong>
+                    </div>
+                    <div class="live-status-card">
+                        <span>Submission Status</span>
+                        <strong>{% if live_submission %}Submitted{% else %}Pending{% endif %}</strong>
+                    </div>
+                </div>
+            </section>
+
+            {% if live_submission_error %}
+                <div class="alert-list">
+                    <div class="alert">{{ live_submission_error }}</div>
+                </div>
+            {% endif %}
+
+            {% if not participants %}
+                <section class="table-panel">
+                    <div class="empty-state">
+                        <h3>No participants available</h3>
+                        <p>The active criterion is live, but there are no participants to score yet.</p>
+                    </div>
+                </section>
+            {% elif live_submission %}
+                <section class="table-panel">
+                    <span class="eyebrow">Submission Locked</span>
+                    <h2>{{ active_live_session.criterion.name }} submitted</h2>
+                    <p>Your scores for this live criterion were finalized on {{ live_submission.submitted_at|date:"M d, Y h:i A" }}.</p>
+
+                    <div class="submission-summary">
+                        {% for row in live_score_rows %}
+                            <div class="submission-row">
+                                <div class="identity-cell">
+                                    {% if row.participant.photo %}
+                                        <img class="participant-photo" src="{{ row.participant.photo.url }}" alt="{{ row.participant.name }}">
+                                    {% else %}
+                                        <div class="avatar-placeholder">{{ row.participant.name|slice:":1" }}</div>
+                                    {% endif %}
+                                    <div>
+                                        <strong>{{ row.participant.name }}</strong>
+                                        <p>Submitted score recorded</p>
+                                    </div>
+                                </div>
+                                <span class="pill">{{ row.score_value }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <p class="live-note">Stay on this screen. It will refresh automatically when the Admin/Tabulator broadcasts the next criterion.</p>
+                </section>
+            {% else %}
+                <section class="form-panel">
+                    <span class="eyebrow">Live Score Sheet</span>
+                    <h2>{{ active_live_session.criterion.name }}</h2>
+                    <p>Complete every participant below, then confirm your submission for this criterion.</p>
+
+                    <form method="post"
+                          action="{% url 'judge:submit_live_scores' %}"
+                          onsubmit="return confirm('Submit all scores for {{ active_live_session.criterion.name|escapejs }}? Double-check every participant before final submission.');">
+                        {% csrf_token %}
+                        <input type="hidden" name="live_session_id" value="{{ active_live_session.id }}">
+
+                        <div class="live-form-grid">
+                            {% for row in live_score_rows %}
+                                <div class="live-score-row">
                                     <div class="identity-cell">
-                                        {% if participant.photo %}
-                                            <img class="participant-photo" src="{{ participant.photo.url }}" alt="{{ participant.name }}">
+                                        {% if row.participant.photo %}
+                                            <img class="participant-photo" src="{{ row.participant.photo.url }}" alt="{{ row.participant.name }}">
                                         {% else %}
-                                            <div class="avatar-placeholder">{{ participant.name|slice:":1" }}</div>
+                                            <div class="avatar-placeholder">{{ row.participant.name|slice:":1" }}</div>
                                         {% endif %}
                                         <div>
-                                            <strong>{{ participant.name }}</strong>
-                                            <p>Ready for scoring</p>
+                                            <strong>{{ row.participant.name }}</strong>
+                                            <p>Enter a score from 1 to 100.</p>
                                         </div>
                                     </div>
-                                </td>
-                                <td>
-                                    <a href="{% url 'judge:score_participant' participant.id %}" class="button">Score</a>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                                    <div>
+                                        <span class="pill">{{ active_live_session.criterion.name }}</span>
+                                    </div>
+                                    <div>
+                                        <input type="number"
+                                               class="live-score-input"
+                                               name="participant_{{ row.participant.id }}"
+                                               min="1"
+                                               max="100"
+                                               step="1"
+                                               required
+                                               value="{{ row.score_value }}">
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="form-footer" style="margin-top: 1rem;">
+                            <button type="submit" class="button">Submit Live Scores</button>
+                        </div>
+                    </form>
+                </section>
+            {% endif %}
         {% else %}
-            <div class="empty-state">
-                <h3>No participants available</h3>
-                <p>Ask the Admin/Tabulator to add participant records before scoring begins.</p>
-            </div>
+            <section class="table-panel">
+                <div class="empty-state">
+                    <h3>No live criterion yet</h3>
+                    <p>When the Admin/Tabulator activates a criterion, it will appear here automatically with the full participant scoring sheet.</p>
+                </div>
+            </section>
         {% endif %}
-    </section>
+    </div>
+{% endblock %}
+
+{% block extra_script %}
+    <script>
+        (function () {
+            const root = document.getElementById("judge-live-root");
+            if (!root) {
+                return;
+            }
+
+            const statusUrl = root.dataset.liveStatusUrl;
+            const currentSessionId = root.dataset.activeSessionId || "";
+            const currentSubmitted = root.dataset.hasSubmitted === "1";
+
+            async function pollLiveStatus() {
+                try {
+                    const response = await fetch(statusUrl, {
+                        headers: {
+                            "X-Requested-With": "XMLHttpRequest",
+                        },
+                    });
+
+                    if (!response.ok) {
+                        return;
+                    }
+
+                    const payload = await response.json();
+                    const nextSessionId = payload.active_session_id ? String(payload.active_session_id) : "";
+                    const nextSubmitted = Boolean(payload.judge_has_submitted);
+
+                    if (nextSessionId !== currentSessionId || nextSubmitted !== currentSubmitted) {
+                        window.location.reload();
+                    }
+                } catch (error) {
+                    // Keep the current screen available even if polling fails briefly.
+                }
+            }
+
+            window.setInterval(pollLiveStatus, 4000);
+        }());
+    </script>
 {% endblock %}

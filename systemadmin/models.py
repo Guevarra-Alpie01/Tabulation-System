@@ -46,6 +46,43 @@ class Judge(models.Model):
         return self.user.username
 
 
+class LiveCriteriaSession(models.Model):
+    criterion = models.ForeignKey(Criteria, on_delete=models.CASCADE, related_name="live_sessions")
+    activated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="activated_live_sessions",
+    )
+    is_active = models.BooleanField(default=True, db_index=True)
+    activated_at = models.DateTimeField(auto_now_add=True)
+    ended_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["-activated_at", "-id"]
+
+    def __str__(self):
+        return f"{self.criterion.name} live session"
+
+
+class LiveCriteriaSubmission(models.Model):
+    session = models.ForeignKey(
+        LiveCriteriaSession,
+        on_delete=models.CASCADE,
+        related_name="judge_submissions",
+    )
+    judge = models.ForeignKey(Judge, on_delete=models.CASCADE, related_name="live_submissions")
+    submitted_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["submitted_at", "id"]
+        unique_together = ("session", "judge")
+
+    def __str__(self):
+        return f"{self.judge} submitted {self.session.criterion.name}"
+
+
 class Score(models.Model):
 
     judge = models.ForeignKey(Judge, on_delete=models.CASCADE)
