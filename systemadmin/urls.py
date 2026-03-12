@@ -21,6 +21,7 @@ urlpatterns = [
     path("criteria/reorder/", views.reorder_criteria, name="reorder_criteria"),
     path("criteria/<int:criteria_id>/go-live/", views.activate_live_criterion, name="activate_live_criterion"),
     path("live/stop/", views.stop_live_criterion, name="stop_live_criterion"),
+    path("scores/refresh/", views.refresh_scores, name="refresh_scores"),
     path("add-criteria/", views.add_criteria, name="add_criteria"),
     path("criteria/<int:criteria_id>/edit/", views.edit_criteria, name="edit_criteria"),
     path("criteria/<int:criteria_id>/delete/", views.delete_criteria, name="delete_criteria"),

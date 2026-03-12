@@ -464,6 +464,66 @@ class LiveBroadcastWorkflowTests(AdminAccessTestCase):
         )
 
 
+class ScoreRefreshWorkflowTests(AdminAccessTestCase):
+    def setUp(self):
+        super().setUp()
+        self.criterion = Criteria.objects.create(name="Production", percentage=100)
+        self.participant = Participant.objects.create(name="Contestant 1")
+        judge_one_user = User.objects.create_user(username="judge_refresh_1", password="pass12345")
+        judge_two_user = User.objects.create_user(username="judge_refresh_2", password="pass12345")
+        self.judge_one = Judge.objects.create(user=judge_one_user)
+        self.judge_two = Judge.objects.create(user=judge_two_user)
+        self.session = LiveCriteriaSession.objects.create(
+            criterion=self.criterion,
+            activated_by=self.admin_user,
+            is_active=True,
+        )
+
+        Score.objects.create(judge=self.judge_one, participant=self.participant, criteria=self.criterion, score_value=91)
+        Score.objects.create(judge=self.judge_two, participant=self.participant, criteria=self.criterion, score_value=88)
+        LiveCriteriaSubmission.objects.create(session=self.session, judge=self.judge_one)
+
+    def test_admin_can_refresh_all_scores_and_live_submission_markers(self):
+        response = self.client.post(
+            reverse("systemadmin:refresh_scores"),
+            {"confirmation_text": "REFRESH"},
+        )
+
+        self.assertRedirects(response, reverse("systemadmin:admin_dashboard"))
+        self.assertEqual(Score.objects.count(), 0)
+        self.assertEqual(LiveCriteriaSubmission.objects.count(), 0)
+
+        self.client.force_login(self.judge_one.user)
+        judge_response = self.client.post(
+            reverse("judge:submit_live_scores"),
+            {
+                "live_session_id": str(self.session.id),
+                f"participant_{self.participant.id}": "94",
+            },
+        )
+
+        self.assertRedirects(judge_response, reverse("judge:judge_dashboard"))
+        self.assertTrue(
+            Score.objects.filter(
+                judge=self.judge_one,
+                participant=self.participant,
+                criteria=self.criterion,
+                score_value=94,
+            ).exists()
+        )
+        self.assertTrue(LiveCriteriaSubmission.objects.filter(session=self.session, judge=self.judge_one).exists())
+
+    def test_refresh_scores_requires_confirmation_word(self):
+        response = self.client.post(
+            reverse("systemadmin:refresh_scores"),
+            {"confirmation_text": "RESET"},
+        )
+
+        self.assertRedirects(response, reverse("systemadmin:admin_dashboard"))
+        self.assertEqual(Score.objects.count(), 2)
+        self.assertEqual(LiveCriteriaSubmission.objects.count(), 1)
+
+
 class WeightedResultsCalculationTests(AdminAccessTestCase):
     def test_results_average_judge_scores_before_applying_weights(self):
         talent = Criteria.objects.create(name="Talent", percentage=40)

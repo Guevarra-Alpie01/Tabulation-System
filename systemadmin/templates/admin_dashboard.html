@@ -3,6 +3,12 @@
 {% block title %}Admin Dashboard{% endblock %}
 {% block page_title %}System Admin Dashboard{% endblock %}
 
+{% block page_actions %}
+    <a href="{% url 'systemadmin:add_judge' %}" class="button secondary">Add Judge</a>
+    <a href="{% url 'systemadmin:add_participant' %}" class="button ghost">Add Participant</a>
+    <button type="button" class="button danger" data-refresh-modal-open>Refresh Scores</button>
+{% endblock %}
+
 {% block extra_head %}
     <style>
         .broadcast-grid {
@@ -94,6 +100,58 @@
             margin-top: 1rem;
         }
 
+        .refresh-modal[hidden] {
+            display: none;
+        }
+
+        .refresh-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 80;
+            display: grid;
+            place-items: center;
+            padding: 1rem;
+        }
+
+        .refresh-modal-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.42);
+        }
+
+        .refresh-modal-card {
+            position: relative;
+            z-index: 1;
+            width: min(100%, 520px);
+            padding: 1.3rem;
+            border-radius: 28px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            box-shadow: var(--shadow-md);
+        }
+
+        .refresh-modal-copy {
+            margin: 0 0 1rem;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        .refresh-modal-field {
+            display: grid;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .refresh-modal-field label {
+            font-size: 0.92rem;
+            font-weight: 700;
+        }
+
+        .refresh-modal-footnote {
+            margin: 0 0 1rem;
+            color: var(--muted);
+        }
+
         @media (max-width: 1100px) {
             .broadcast-grid {
                 grid-template-columns: 1fr;
@@ -105,6 +163,11 @@
             .judge-progress-row {
                 flex-direction: column;
                 align-items: flex-start;
+            }
+
+            .refresh-modal-card {
+                padding: 1rem;
+                border-radius: 22px;
             }
         }
     </style>
@@ -277,4 +340,104 @@
             {% endif %}
         </article>
     </section>
+
+    <div class="refresh-modal" data-refresh-modal hidden>
+        <button type="button" class="refresh-modal-backdrop" data-refresh-modal-close aria-label="Close refresh confirmation"></button>
+        <div class="refresh-modal-card" role="dialog" aria-modal="true" aria-labelledby="refresh-modal-title">
+            <div class="panel-head">
+                <div>
+                    <span class="section-label">Score Refresh</span>
+                    <h2 id="refresh-modal-title">Clear all submitted judge scores</h2>
+                </div>
+                <span class="pill warning">Protected Action</span>
+            </div>
+
+            <p class="refresh-modal-copy">
+                This will remove every judge score for all participants across all criteria. To continue,
+                type <strong>REFRESH</strong> below. Live submission markers will also be cleared so judges can resubmit from a clean slate.
+            </p>
+
+            <form method="post" action="{% url 'systemadmin:refresh_scores' %}">
+                {% csrf_token %}
+                <div class="refresh-modal-field">
+                    <label for="refresh-confirmation-input">Confirmation Word</label>
+                    <input id="refresh-confirmation-input"
+                           type="text"
+                           name="confirmation_text"
+                           class="form-input"
+                           placeholder="Type REFRESH to confirm"
+                           autocomplete="off"
+                           autocapitalize="characters"
+                           data-refresh-confirmation>
+                </div>
+                <p class="refresh-modal-footnote">
+                    This action keeps participants, criteria, and judge accounts intact. Only submitted scores and live submission records will be reset.
+                </p>
+                <div class="button-row" style="justify-content:flex-end;">
+                    <button type="button" class="button ghost" data-refresh-modal-close>Cancel</button>
+                    <button type="submit" class="button danger" data-refresh-submit disabled>Clear All Scores</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_script %}
+    <script>
+        const refreshModal = document.querySelector("[data-refresh-modal]");
+        const refreshModalOpeners = document.querySelectorAll("[data-refresh-modal-open]");
+        const refreshModalClosers = document.querySelectorAll("[data-refresh-modal-close]");
+        const refreshConfirmationInput = document.querySelector("[data-refresh-confirmation]");
+        const refreshSubmitButton = document.querySelector("[data-refresh-submit]");
+
+        function syncRefreshConfirmation() {
+            if (!refreshConfirmationInput || !refreshSubmitButton) {
+                return;
+            }
+
+            refreshSubmitButton.disabled = refreshConfirmationInput.value.trim().toUpperCase() !== "REFRESH";
+        }
+
+        function openRefreshModal() {
+            if (!refreshModal) {
+                return;
+            }
+
+            refreshModal.hidden = false;
+            document.body.style.overflow = "hidden";
+
+            if (refreshConfirmationInput) {
+                refreshConfirmationInput.value = "";
+                syncRefreshConfirmation();
+                refreshConfirmationInput.focus();
+            }
+        }
+
+        function closeRefreshModal() {
+            if (!refreshModal) {
+                return;
+            }
+
+            refreshModal.hidden = true;
+            document.body.style.overflow = "";
+        }
+
+        refreshModalOpeners.forEach((button) => {
+            button.addEventListener("click", openRefreshModal);
+        });
+
+        refreshModalClosers.forEach((button) => {
+            button.addEventListener("click", closeRefreshModal);
+        });
+
+        if (refreshConfirmationInput) {
+            refreshConfirmationInput.addEventListener("input", syncRefreshConfirmation);
+        }
+
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && refreshModal && !refreshModal.hidden) {
+                closeRefreshModal();
+            }
+        });
+    </script>
 {% endblock %}

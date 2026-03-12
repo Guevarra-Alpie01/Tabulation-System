@@ -522,6 +522,37 @@ def stop_live_criterion(request):
     return redirect("systemadmin:admin_dashboard")
 
 
+@require_POST
+@admin_required
+@transaction.atomic
+def refresh_scores(request):
+    confirmation_text = str(request.POST.get("confirmation_text", "")).strip().upper()
+
+    if confirmation_text != "REFRESH":
+        messages.error(request, "Type REFRESH in the confirmation box to clear all judge scores.")
+        return redirect("systemadmin:admin_dashboard")
+
+    cleared_score_count = Score.objects.count()
+    cleared_submission_count = LiveCriteriaSubmission.objects.count()
+
+    if not cleared_score_count and not cleared_submission_count:
+        messages.info(request, "There are no submitted judge scores to refresh right now.")
+        return redirect("systemadmin:admin_dashboard")
+
+    Score.objects.all().delete()
+    LiveCriteriaSubmission.objects.all().delete()
+
+    if cleared_submission_count:
+        messages.success(
+            request,
+            f"All judge scores were refreshed. {cleared_score_count} score records and {cleared_submission_count} live submission records were cleared.",
+        )
+    else:
+        messages.success(request, f"All judge scores were refreshed. {cleared_score_count} score records were cleared.")
+
+    return redirect("systemadmin:admin_dashboard")
+
+
 @admin_required
 def edit_criteria(request, criteria_id):
     criterion = get_object_or_404(Criteria, pk=criteria_id)
