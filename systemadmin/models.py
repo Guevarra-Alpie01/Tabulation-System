@@ -108,6 +108,10 @@ class Score(models.Model):
 
     class Meta:
         unique_together = ("judge", "participant", "criteria")
+        indexes = [
+            models.Index(fields=["judge", "criteria"]),
+            models.Index(fields=["participant", "criteria"]),
+        ]
 
     def weighted_score(self):
         return (self.score_value / 100) * self.criteria.percentage

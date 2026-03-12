@@ -524,6 +524,48 @@ class LiveBroadcastWorkflowTests(AdminAccessTestCase):
         )
         self.assertTrue(response.json()["judge_rows"][0]["submitted_at"])
 
+    def test_stop_live_criterion_closes_all_active_sessions(self):
+        first_session = LiveCriteriaSession.objects.create(
+            criterion=self.production,
+            activated_by=self.admin_user,
+            is_active=True,
+        )
+        second_session = LiveCriteriaSession.objects.create(
+            criterion=self.talent,
+            activated_by=self.admin_user,
+            is_active=True,
+        )
+
+        response = self.client.post(reverse("systemadmin:stop_live_criterion"))
+
+        self.assertRedirects(response, reverse("systemadmin:admin_dashboard"))
+        first_session.refresh_from_db()
+        second_session.refresh_from_db()
+        self.assertFalse(first_session.is_active)
+        self.assertFalse(second_session.is_active)
+        self.assertFalse(LiveCriteriaSession.objects.filter(is_active=True).exists())
+
+    def test_repeat_live_submission_is_handled_without_duplicate_records(self):
+        session = LiveCriteriaSession.objects.create(
+            criterion=self.production,
+            activated_by=self.admin_user,
+            is_active=True,
+        )
+        self.client.force_login(self.judge.user)
+        payload = {
+            "live_session_id": str(session.id),
+            f"participant_{self.participant_one.id}": "92",
+            f"participant_{self.participant_two.id}": "87",
+        }
+
+        first_response = self.client.post(reverse("judge:submit_live_scores"), payload)
+        second_response = self.client.post(reverse("judge:submit_live_scores"), payload)
+
+        self.assertRedirects(first_response, reverse("judge:judge_dashboard"))
+        self.assertRedirects(second_response, reverse("judge:judge_dashboard"))
+        self.assertEqual(LiveCriteriaSubmission.objects.filter(session=session, judge=self.judge).count(), 1)
+        self.assertEqual(Score.objects.filter(judge=self.judge, criteria=self.production).count(), 2)
+
 
 class ScoreRefreshWorkflowTests(AdminAccessTestCase):
     def setUp(self):
@@ -752,3 +794,25 @@ class WeightedResultsCalculationTests(AdminAccessTestCase):
         self.assertContains(response, "Rank 1 participant per segment")
         self.assertContains(response, "Contestant A")
         self.assertContains(response, "Contestant B")
+
+
+class ManualJudgeScoringValidationTests(TestCase):
+    def test_score_participant_rejects_invalid_scores_without_writing_partial_data(self):
+        participant = Participant.objects.create(name="Contestant Manual")
+        first = Criteria.objects.create(name="Production", percentage=50)
+        second = Criteria.objects.create(name="Talent", percentage=50)
+        judge_user = User.objects.create_user(username="judge_manual", password="judgepass123")
+        judge = Judge.objects.create(user=judge_user)
+        self.client.force_login(judge_user)
+
+        response = self.client.post(
+            reverse("judge:score_participant", args=[participant.id]),
+            {
+                f"criteria_{first.id}": "95",
+                f"criteria_{second.id}": "105",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, "Talent must be scored from 1 to 100.", status_code=400)
+        self.assertFalse(Score.objects.filter(judge=judge, participant=participant).exists())

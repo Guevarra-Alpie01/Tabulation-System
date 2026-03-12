@@ -12,10 +12,11 @@ from django.views.decorators.http import require_POST
 from .auth_utils import admin_required
 from .forms import CriteriaForm, JudgeAccountForm, ParticipantForm
 from .models import Criteria, Judge, LiveCriteriaSession, LiveCriteriaSubmission, Participant, Score
+from .scoring_utils import acquire_scoring_write_lock
 
 
 def _calculate_results():
-    participants = list(Participant.objects.order_by("display_order", "id"))
+    participants = list(Participant.objects.only("id", "name", "photo", "display_order").order_by("display_order", "id"))
     averaged_scores_by_participant = defaultdict(list)
 
     averaged_scores = (
@@ -61,9 +62,9 @@ def _build_ranked_results():
 
 
 def _build_criterion_breakdowns():
-    criteria = list(Criteria.objects.order_by("display_order", "id"))
-    participants = list(Participant.objects.order_by("display_order", "id"))
-    judges = list(Judge.objects.select_related("user").order_by("id"))
+    criteria = list(Criteria.objects.only("id", "name", "percentage", "display_order").order_by("display_order", "id"))
+    participants = list(Participant.objects.only("id", "name", "photo", "display_order").order_by("display_order", "id"))
+    judges = list(Judge.objects.select_related("user").only("id", "user__username").order_by("id"))
     score_map = defaultdict(dict)
 
     for score in Score.objects.values("criteria_id", "participant_id", "judge_id", "score_value"):
@@ -231,9 +232,20 @@ def _get_active_live_session():
     )
 
 
+def _deactivate_live_sessions(active_sessions, ended_at=None):
+    session_ids = [session.id for session in active_sessions if session.is_active]
+    if not session_ids:
+        return 0
+
+    return LiveCriteriaSession.objects.filter(id__in=session_ids, is_active=True).update(
+        is_active=False,
+        ended_at=ended_at or timezone.now(),
+    )
+
+
 def _build_live_dashboard_context(active_session):
-    criteria = list(Criteria.objects.order_by("display_order", "id"))
-    judges = list(Judge.objects.select_related("user").order_by("user__username", "id"))
+    criteria = list(Criteria.objects.only("id", "name", "percentage", "display_order").order_by("display_order", "id"))
+    judges = list(Judge.objects.select_related("user").only("id", "user__username").order_by("user__username", "id"))
     criteria_total = round(Criteria.objects.aggregate(total=Sum("percentage"))["total"] or 0, 2)
     criteria_ready = bool(criteria) and abs(criteria_total - 100) < 0.01
     submission_map = {}
@@ -264,23 +276,30 @@ def _build_live_dashboard_context(active_session):
 
 
 def _serialize_live_dashboard_state(active_session):
-    live_context = _build_live_dashboard_context(active_session)
+    judges = list(Judge.objects.select_related("user").only("id", "user__username").order_by("user__username", "id"))
+    submission_map = {}
+
+    if active_session:
+        submission_map = {
+            submission["judge_id"]: submission["submitted_at"]
+            for submission in LiveCriteriaSubmission.objects.filter(session=active_session).values("judge_id", "submitted_at")
+        }
 
     return {
         "active_session_id": active_session.id if active_session else None,
         "active_criterion_id": active_session.criterion_id if active_session else None,
         "criterion_name": active_session.criterion.name if active_session else "",
-        "live_submission_count": live_context["live_submission_count"],
-        "judge_count": len(live_context["live_judge_rows"]),
+        "live_submission_count": len(submission_map),
+        "judge_count": len(judges),
         "judge_rows": [
             {
-                "username": row["judge"].user.username,
-                "submitted": row["submitted"],
-                "submitted_at": timezone.localtime(row["submitted_at"]).strftime("%b %d, %Y %I:%M %p")
-                if row["submitted_at"]
+                "username": judge.user.username,
+                "submitted": judge.id in submission_map,
+                "submitted_at": timezone.localtime(submission_map[judge.id]).strftime("%b %d, %Y %I:%M %p")
+                if judge.id in submission_map
                 else "",
             }
-            for row in live_context["live_judge_rows"]
+            for judge in judges
         ],
     }
 
@@ -576,6 +595,7 @@ def reorder_criteria(request):
 @admin_required
 @transaction.atomic
 def activate_live_criterion(request, criteria_id):
+    acquire_scoring_write_lock()
     criterion = get_object_or_404(Criteria, pk=criteria_id)
     criteria_total = round(Criteria.objects.aggregate(total=Sum("percentage"))["total"] or 0, 2)
 
@@ -594,15 +614,19 @@ def activate_live_criterion(request, criteria_id):
         messages.error(request, "Add at least one judge account before broadcasting a live criterion.")
         return redirect("systemadmin:admin_dashboard")
 
-    active_session = _get_active_live_session()
+    active_sessions = list(
+        LiveCriteriaSession.objects.filter(is_active=True)
+        .select_related("criterion")
+        .order_by("-activated_at", "-id")
+    )
+    active_session = active_sessions[0] if active_sessions else None
+
     if active_session and active_session.criterion_id == criterion.id:
+        _deactivate_live_sessions(active_sessions[1:])
         messages.info(request, f"{criterion.name} is already live on the judges' screens.")
         return redirect("systemadmin:admin_dashboard")
 
-    if active_session:
-        active_session.is_active = False
-        active_session.ended_at = timezone.now()
-        active_session.save(update_fields=["is_active", "ended_at"])
+    _deactivate_live_sessions(active_sessions)
 
     LiveCriteriaSession.objects.create(
         criterion=criterion,
@@ -615,15 +639,20 @@ def activate_live_criterion(request, criteria_id):
 
 @require_POST
 @admin_required
+@transaction.atomic
 def stop_live_criterion(request):
-    active_session = _get_active_live_session()
+    acquire_scoring_write_lock()
+    active_sessions = list(
+        LiveCriteriaSession.objects.filter(is_active=True)
+        .select_related("criterion")
+        .order_by("-activated_at", "-id")
+    )
+    active_session = active_sessions[0] if active_sessions else None
     if not active_session:
         messages.info(request, "There is no live criterion to stop.")
         return redirect("systemadmin:admin_dashboard")
 
-    active_session.is_active = False
-    active_session.ended_at = timezone.now()
-    active_session.save(update_fields=["is_active", "ended_at"])
+    _deactivate_live_sessions(active_sessions)
     messages.success(request, f"Live broadcast for {active_session.criterion.name} has been stopped.")
     return redirect("systemadmin:admin_dashboard")
 
@@ -638,6 +667,7 @@ def refresh_scores(request):
         messages.error(request, "Type REFRESH in the confirmation box to clear all judge scores.")
         return redirect("systemadmin:admin_dashboard")
 
+    acquire_scoring_write_lock()
     cleared_score_count = Score.objects.count()
     cleared_submission_count = LiveCriteriaSubmission.objects.count()
 

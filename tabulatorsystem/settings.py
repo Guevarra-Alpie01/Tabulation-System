@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import socket
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -26,7 +27,29 @@ SECRET_KEY = 'django-insecure-2--bk=k4+$onaqtfsjiw^)47zy^ksp%o=z661tu_jwt%by=l1u
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+
+def _default_allowed_hosts():
+    hosts = {"localhost", "127.0.0.1", "::1", "[::1]", "0.0.0.0"}
+
+    try:
+        hostname = socket.gethostname()
+        if hostname:
+            hosts.add(hostname)
+
+        _, aliases, addresses = socket.gethostbyname_ex(hostname)
+        hosts.update(alias for alias in aliases if alias)
+        hosts.update(address for address in addresses if address)
+    except OSError:
+        pass
+
+    env_hosts = os.getenv("DJANGO_ALLOWED_HOSTS", "")
+    if env_hosts:
+        hosts.update(host.strip() for host in env_hosts.split(",") if host.strip())
+
+    return sorted(hosts)
+
+
+ALLOWED_HOSTS = _default_allowed_hosts()
 
 
 # Application definition
@@ -83,6 +106,8 @@ DATABASES = {
         'PASSWORD':'',
         'HOST': 'localhost',
         'PORT': '3306',
+        'CONN_MAX_AGE': 60,
+        'CONN_HEALTH_CHECKS': True,
     }
 }
 
