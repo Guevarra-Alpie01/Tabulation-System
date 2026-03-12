@@ -187,8 +187,11 @@
         </div>
     {% endif %}
 
-    <section class="broadcast-grid">
-        <article class="panel">
+    <div id="admin-live-root"
+         data-live-progress-url="{% url 'systemadmin:live_progress_data' %}"
+         data-active-session-id="{% if active_live_session %}{{ active_live_session.id }}{% endif %}">
+        <section class="broadcast-grid">
+            <article class="panel">
             <div class="panel-head">
                 <div>
                     <span class="section-label">Live Broadcast</span>
@@ -203,8 +206,8 @@
 
             {% if active_live_session %}
                 <div class="live-banner">
-                    <strong>{{ active_live_session.criterion.name }} is live on all judge dashboards.</strong>
-                    <p>
+                    <strong data-live-banner-title>{{ active_live_session.criterion.name }} is live on all judge dashboards.</strong>
+                    <p data-live-banner-copy>
                         Judges are scoring every participant from 1 to 100 for this criterion. {{ live_submission_count }} of
                         {{ admin_summary.judge_count }} judge{{ admin_summary.judge_count|pluralize }} have submitted.
                     </p>
@@ -226,7 +229,7 @@
                                     <span class="pill">Order {{ criterion.display_order }}</span>
                                 </div>
                                 {% if active_live_session and active_live_session.criterion_id == criterion.id %}
-                                    <div class="broadcast-status">
+                                    <div class="broadcast-status" data-active-card-status>
                                         Live now. {{ live_submission_count }} of {{ admin_summary.judge_count }} judge{{ admin_summary.judge_count|pluralize }} submitted.
                                     </div>
                                 {% endif %}
@@ -267,16 +270,16 @@
                     <span class="section-label">Judge Progress</span>
                     <h2>Live submission status</h2>
                 </div>
-                <span class="pill accent">{{ live_submission_count }} submitted</span>
+                <span class="pill accent" data-live-submission-count>{{ live_submission_count }} submitted</span>
             </div>
 
             {% if active_live_session %}
-                <p class="judge-progress-copy">
+                <p class="judge-progress-copy" data-live-progress-copy>
                     Tracking live submissions for <strong>{{ active_live_session.criterion.name }}</strong>. Pending judges will remain on the active score sheet until they submit.
                 </p>
 
                 {% if live_judge_rows %}
-                    <div class="judge-progress-list">
+                    <div class="judge-progress-list" data-live-progress-list>
                         {% for row in live_judge_rows %}
                             <div class="judge-progress-row">
                                 <div>
@@ -305,11 +308,11 @@
                     <p>Start a live criterion to monitor judge submissions in real time from this panel.</p>
                 </div>
             {% endif %}
-        </article>
-    </section>
+            </article>
+        </section>
 
-    <section class="leader-section">
-        <article class="panel">
+        <section class="leader-section">
+            <article class="panel">
             <div class="panel-head">
                 <div>
                     <span class="section-label">Leaderboard</span>
@@ -346,46 +349,47 @@
                     <p>Add participants, configure criteria, and start scoring to populate the leaderboard.</p>
                 </div>
             {% endif %}
-        </article>
-    </section>
+            </article>
+        </section>
 
-    <div class="refresh-modal" data-refresh-modal hidden>
-        <button type="button" class="refresh-modal-backdrop" data-refresh-modal-close aria-label="Close refresh confirmation"></button>
-        <div class="refresh-modal-card" role="dialog" aria-modal="true" aria-labelledby="refresh-modal-title">
-            <div class="panel-head">
-                <div>
-                    <span class="section-label">Score Refresh</span>
-                    <h2 id="refresh-modal-title">Clear all submitted judge scores</h2>
+        <div class="refresh-modal" data-refresh-modal hidden>
+            <button type="button" class="refresh-modal-backdrop" data-refresh-modal-close aria-label="Close refresh confirmation"></button>
+            <div class="refresh-modal-card" role="dialog" aria-modal="true" aria-labelledby="refresh-modal-title">
+                <div class="panel-head">
+                    <div>
+                        <span class="section-label">Score Refresh</span>
+                        <h2 id="refresh-modal-title">Clear all submitted judge scores</h2>
+                    </div>
+                    <span class="pill warning">Protected Action</span>
                 </div>
-                <span class="pill warning">Protected Action</span>
-            </div>
 
-            <p class="refresh-modal-copy">
-                This will remove every judge score for all participants across all criteria. To continue,
-                type <strong>REFRESH</strong> below. Live submission markers will also be cleared so judges can resubmit from a clean slate.
-            </p>
-
-            <form method="post" action="{% url 'systemadmin:refresh_scores' %}">
-                {% csrf_token %}
-                <div class="refresh-modal-field">
-                    <label for="refresh-confirmation-input">Confirmation Word</label>
-                    <input id="refresh-confirmation-input"
-                           type="text"
-                           name="confirmation_text"
-                           class="form-input"
-                           placeholder="Type REFRESH to confirm"
-                           autocomplete="off"
-                           autocapitalize="characters"
-                           data-refresh-confirmation>
-                </div>
-                <p class="refresh-modal-footnote">
-                    This action keeps participants, criteria, and judge accounts intact. Only submitted scores and live submission records will be reset.
+                <p class="refresh-modal-copy">
+                    This will remove every judge score for all participants across all criteria. To continue,
+                    type <strong>REFRESH</strong> below. Live submission markers will also be cleared so judges can resubmit from a clean slate.
                 </p>
-                <div class="button-row" style="justify-content:flex-end;">
-                    <button type="button" class="button ghost" data-refresh-modal-close>Cancel</button>
-                    <button type="submit" class="button danger" data-refresh-submit disabled>Clear All Scores</button>
-                </div>
-            </form>
+
+                <form method="post" action="{% url 'systemadmin:refresh_scores' %}">
+                    {% csrf_token %}
+                    <div class="refresh-modal-field">
+                        <label for="refresh-confirmation-input">Confirmation Word</label>
+                        <input id="refresh-confirmation-input"
+                               type="text"
+                               name="confirmation_text"
+                               class="form-input"
+                               placeholder="Type REFRESH to confirm"
+                               autocomplete="off"
+                               autocapitalize="characters"
+                               data-refresh-confirmation>
+                    </div>
+                    <p class="refresh-modal-footnote">
+                        This action keeps participants, criteria, and judge accounts intact. Only submitted scores and live submission records will be reset.
+                    </p>
+                    <div class="button-row" style="justify-content:flex-end;">
+                        <button type="button" class="button ghost" data-refresh-modal-close>Cancel</button>
+                        <button type="submit" class="button danger" data-refresh-submit disabled>Clear All Scores</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 {% endblock %}
@@ -447,5 +451,107 @@
                 closeRefreshModal();
             }
         });
+
+        (function () {
+            const adminLiveRoot = document.getElementById("admin-live-root");
+            if (!adminLiveRoot) {
+                return;
+            }
+
+            const liveProgressUrl = adminLiveRoot.dataset.liveProgressUrl;
+            let currentSessionId = adminLiveRoot.dataset.activeSessionId || "";
+            const liveBannerTitle = document.querySelector("[data-live-banner-title]");
+            const liveBannerCopy = document.querySelector("[data-live-banner-copy]");
+            const activeCardStatus = document.querySelector("[data-active-card-status]");
+            const submissionCount = document.querySelector("[data-live-submission-count]");
+            const progressCopy = document.querySelector("[data-live-progress-copy]");
+            const progressList = document.querySelector("[data-live-progress-list]");
+
+            function escapeHtml(value) {
+                return String(value)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#39;");
+            }
+
+            function renderJudgeRows(rows) {
+                if (!rows.length) {
+                    return `
+                        <div class="empty-state">
+                            <h3>No judges added yet</h3>
+                            <p>Create judge accounts so live submissions can be tracked here.</p>
+                        </div>
+                    `;
+                }
+
+                return rows.map((row) => `
+                    <div class="judge-progress-row">
+                        <div>
+                            <strong>${escapeHtml(row.username)}</strong>
+                            <p>${row.submitted ? `Submitted on ${escapeHtml(row.submitted_at)}` : "Waiting for this judge to complete the live score sheet."}</p>
+                        </div>
+                        <span class="pill ${row.submitted ? "success" : ""}">
+                            ${row.submitted ? "Submitted" : "Pending"}
+                        </span>
+                    </div>
+                `).join("");
+            }
+
+            async function pollLiveProgress() {
+                try {
+                    const response = await fetch(liveProgressUrl, {
+                        headers: {
+                            "X-Requested-With": "XMLHttpRequest",
+                        },
+                    });
+
+                    if (!response.ok) {
+                        return;
+                    }
+
+                    const payload = await response.json();
+                    const nextSessionId = payload.active_session_id ? String(payload.active_session_id) : "";
+
+                    if (nextSessionId !== currentSessionId) {
+                        window.location.reload();
+                        return;
+                    }
+
+                    if (!nextSessionId) {
+                        return;
+                    }
+
+                    if (submissionCount) {
+                        submissionCount.textContent = `${payload.live_submission_count} submitted`;
+                    }
+
+                    if (liveBannerTitle) {
+                        liveBannerTitle.textContent = `${payload.criterion_name} is live on all judge dashboards.`;
+                    }
+
+                    if (liveBannerCopy) {
+                        liveBannerCopy.textContent = `Judges are scoring every participant from 1 to 100 for this criterion. ${payload.live_submission_count} of ${payload.judge_count} judge${payload.judge_count === 1 ? "" : "s"} have submitted.`;
+                    }
+
+                    if (activeCardStatus) {
+                        activeCardStatus.textContent = `Live now. ${payload.live_submission_count} of ${payload.judge_count} judge${payload.judge_count === 1 ? "" : "s"} submitted.`;
+                    }
+
+                    if (progressCopy) {
+                        progressCopy.innerHTML = `Tracking live submissions for <strong>${escapeHtml(payload.criterion_name)}</strong>. Pending judges will remain on the active score sheet until they submit.`;
+                    }
+
+                    if (progressList) {
+                        progressList.innerHTML = renderJudgeRows(payload.judge_rows || []);
+                    }
+                } catch (error) {
+                    // Keep the current admin dashboard visible if polling fails briefly.
+                }
+            }
+
+            window.setInterval(pollLiveProgress, 3000);
+        }());
     </script>
 {% endblock %}

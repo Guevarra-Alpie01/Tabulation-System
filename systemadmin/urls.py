@@ -8,6 +8,7 @@ app_name = "systemadmin"
 
 urlpatterns = [
     path("admin-dash/", views.admin_dashboard, name="admin_dashboard"),
+    path("admin-dash/live-progress/", views.live_progress_data, name="live_progress_data"),
     path("participants/", views.participant_list, name="participant_list"),
     path("participants/reorder/", views.reorder_participants, name="reorder_participants"),
     path("add-participant/", views.add_participant, name="add_participant"),

@@ -184,6 +184,28 @@ def _build_live_dashboard_context(active_session):
     }
 
 
+def _serialize_live_dashboard_state(active_session):
+    live_context = _build_live_dashboard_context(active_session)
+
+    return {
+        "active_session_id": active_session.id if active_session else None,
+        "active_criterion_id": active_session.criterion_id if active_session else None,
+        "criterion_name": active_session.criterion.name if active_session else "",
+        "live_submission_count": live_context["live_submission_count"],
+        "judge_count": len(live_context["live_judge_rows"]),
+        "judge_rows": [
+            {
+                "username": row["judge"].user.username,
+                "submitted": row["submitted"],
+                "submitted_at": timezone.localtime(row["submitted_at"]).strftime("%b %d, %Y %I:%M %p")
+                if row["submitted_at"]
+                else "",
+            }
+            for row in live_context["live_judge_rows"]
+        ],
+    }
+
+
 def _admin_context():
     participant_count = Participant.objects.count()
     criteria_count = Criteria.objects.count()
@@ -219,6 +241,11 @@ def admin_dashboard(request):
         }
     )
     return render(request, "admin_dashboard.html", context)
+
+
+@admin_required
+def live_progress_data(request):
+    return JsonResponse(_serialize_live_dashboard_state(_get_active_live_session()))
 
 
 @admin_required

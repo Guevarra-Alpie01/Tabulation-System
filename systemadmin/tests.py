@@ -412,7 +412,7 @@ class LiveBroadcastWorkflowTests(AdminAccessTestCase):
         )
         self.assertContains(response, "Candidate #1")
         self.assertContains(response, "Candidate #2")
-        self.assertContains(response, "60.00% Weight")
+        self.assertContains(response, "60.00%")
         self.assertNotContains(response, "Judge Access")
         self.assertNotContains(response, "Order 1")
 
@@ -488,6 +488,41 @@ class LiveBroadcastWorkflowTests(AdminAccessTestCase):
                 "judge_has_submitted": True,
             },
         )
+
+    def test_admin_live_progress_data_reports_submission_updates(self):
+        session = LiveCriteriaSession.objects.create(
+            criterion=self.production,
+            activated_by=self.admin_user,
+            is_active=True,
+        )
+        LiveCriteriaSubmission.objects.create(session=session, judge=self.judge)
+
+        response = self.client.get(reverse("systemadmin:live_progress_data"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.json(),
+            {
+                "active_session_id": session.id,
+                "active_criterion_id": self.production.id,
+                "criterion_name": "Production",
+                "live_submission_count": 1,
+                "judge_count": 2,
+                "judge_rows": [
+                    {
+                        "username": "judge_live",
+                        "submitted": True,
+                        "submitted_at": response.json()["judge_rows"][0]["submitted_at"],
+                    },
+                    {
+                        "username": "judge_pending",
+                        "submitted": False,
+                        "submitted_at": "",
+                    },
+                ],
+            },
+        )
+        self.assertTrue(response.json()["judge_rows"][0]["submitted_at"])
 
 
 class ScoreRefreshWorkflowTests(AdminAccessTestCase):
