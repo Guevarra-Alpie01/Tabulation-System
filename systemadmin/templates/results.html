@@ -1,0 +1,64 @@
+<h2>Pageant Tabulation Results</h2>
+
+<table border="1">
+
+<tr>
+<th>Rank</th>
+<th>Participant</th>
+<th>Score</th>
+</tr>
+
+{% for r in results %}
+
+<tr>
+
+<td>{{forloop.counter}}</td>
+<td>{{r.participant.name}}</td>
+<td>{{r.score}}</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+
+<h2>Live Scoreboard</h2>
+
+<div id="scoreboard"></div>
+
+<script>
+
+function loadScores(){
+
+fetch("/system-admin/results-data/")
+.then(response => response.json())
+.then(data => {
+
+let html = "<table border='1'>";
+
+html += "<tr><th>Rank</th><th>Participant</th><th>Score</th></tr>";
+
+data.results.forEach((r,index)=>{
+
+html += `<tr>
+<td>${index+1}</td>
+<td>${r.name}</td>
+<td>${r.score}</td>
+</tr>`;
+
+});
+
+html += "</table>";
+
+document.getElementById("scoreboard").innerHTML = html;
+
+});
+
+}
+
+loadScores()
+
+setInterval(loadScores,3000)
+
+</script>

@@ -1,0 +1,21 @@
+<h2>Judging Criteria</h2>
+
+<a href="{% url 'systemadmin:add_criteria' %}">Add Criteria</a>
+
+<table border="1">
+
+<tr>
+<th>Name</th>
+<th>Percentage</th>
+</tr>
+
+{% for c in criteria %}
+
+<tr>
+<td>{{c.name}}</td>
+<td>{{c.percentage}}%</td>
+</tr>
+
+{% endfor %}
+
+</table>

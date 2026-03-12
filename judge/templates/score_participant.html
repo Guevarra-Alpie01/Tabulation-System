@@ -1,0 +1,43 @@
+<h2>Scoring: {{participant.name}}</h2>
+
+<form method="POST">
+
+{% csrf_token %}
+
+<table border="1">
+
+<tr>
+<th>Criteria</th>
+<th>Percentage</th>
+<th>Score (1-100)</th>
+</tr>
+
+{% for c in criteria_list %}
+
+<tr>
+
+<td>{{c.name}}</td>
+
+<td>{{c.percentage}}%</td>
+
+<td>
+<input type="number"
+name="criteria_{{c.id}}"
+min="1"
+max="100"
+required>
+</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+<br>
+
+<button type="submit">
+Submit Scores
+</button>
+
+</form>

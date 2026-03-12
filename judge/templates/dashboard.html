@@ -1,0 +1,30 @@
+<h2>Participants</h2>
+
+<table border="1">
+
+<tr>
+<th>ID</th>
+<th>Name</th>
+<th>Action</th>
+</tr>
+
+{% for p in participants %}
+
+<tr>
+
+<td>{{p.id}}</td>
+<td>{{p.name}}</td>
+
+<td>
+
+<a href="{% url 'judge:score_participant' p.id %}">
+Score
+</a>
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</table>

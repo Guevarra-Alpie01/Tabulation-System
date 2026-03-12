@@ -1,0 +1,29 @@
+<h2>Participants</h2>
+
+<a href="{% url 'systemadmin:add_participant' %}">Add Participant</a>
+
+<table border="1">
+
+<tr>
+<th>ID</th>
+<th>Name</th>
+<th>Photo</th>
+</tr>
+
+{% for p in participants %}
+
+<tr>
+<td>{{p.id}}</td>
+<td>{{p.name}}</td>
+
+<td>
+{% if p.photo %}
+<img src="{{p.photo.url}}" width="80">
+{% endif %}
+</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
